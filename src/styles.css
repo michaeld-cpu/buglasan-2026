@@ -1,0 +1,2232 @@
+/**
+ * Judges' Panel, design system.
+ *
+ * The token ramp is lifted from the public Buglasan Festival site
+ * (`src/styles.css` in buglasan-2026) so the two products read as one: same
+ * Archivo type, same lifted-black green ground, same gold accent. What is
+ * deliberately NOT carried over is the marketing chrome, no WebGL stage, no
+ * glass blur, no hover animation, no vote cursor.
+ *
+ * This screen is used by non-technical judges, often older, on their own
+ * phones, under stage lights, on venue wifi. Every decision below follows from
+ * that: large tap targets, high contrast, no motion that could be mistaken for
+ * a loading state, and number inputs big enough to read at arm's length.
+ */
+
+/* ------------------------------------------------------------------------- */
+/* Tokens                                                                     */
+/* ------------------------------------------------------------------------- */
+
+:root {
+  --font-sans: "Archivo Variable", "Archivo", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+
+  /* Ink ramp, verified ≥4.5:1 on --ground */
+  --ink: oklch(0.97 0.014 95);
+  --ink-muted: oklch(0.822 0.021 148);
+  --ink-dim: oklch(0.672 0.024 150);
+
+  /* Ground ramp, lifted off pure black so shadow and edges can read */
+  --ground: oklch(0.158 0.021 158);
+  --surface: oklch(0.212 0.028 158);
+  --surface-2: oklch(0.262 0.034 156);
+  --surface-3: oklch(0.318 0.042 154);
+
+  /* Accents */
+  --gold: oklch(0.806 0.148 79);
+  --gold-bright: oklch(0.905 0.126 92);
+  --gold-deep: oklch(0.648 0.132 66);
+  --mint: oklch(0.858 0.183 148);
+  --rose: oklch(0.66 0.145 30);
+  --amber: oklch(0.82 0.15 75);
+
+  --line: color-mix(in oklch, var(--gold) 26%, transparent);
+  --line-soft: color-mix(in oklch, var(--ink) 11%, transparent);
+  --panel: var(--surface);
+
+  --radius-xl: 20px;
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  /* The score sheet's vertical rhythm: the gap between the sticky title, an
+     optional notice, and the candidate list. One token so the three stack on
+     the same beat instead of each carrying its own margin, they drifted apart
+     as the sheet grew. Matches `.score-rows`' own `gap`, so the space above
+     the first card equals the space between cards. */
+  --sheet-gap: .85rem;
+  --radius-sm: 7px;
+
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, .38), 0 6px 14px -10px rgba(0, 0, 0, .8);
+  /* Both of these were silently invalid: `rgba(0, 0, 0, .28)` and
+     `cubic-bezier(.22, 1.36, 1)` are three-argument forms of four-argument
+     functions, so the browser discarded the declarations. Every `--shadow-lift`
+     dropped its shadow and every transition using `--ease-out` fell back to
+     plain `ease`. */
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, .28), 0 18px 42px -20px rgba(0, 0, 0, .82);
+
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --dur-1: .18s;
+  /* Page-level motion: longer than a control's .18s, short enough that a judge
+     moving between sheets never waits on it. */
+  --dur-page: .34s;
+
+  /* Per-program accent, set on a wrapper by the screens. Defaults to gold.
+     Matches the public site's `accentColor` per arena so a judge on the booth
+     panel sees the same violet the public booth page uses. */
+  --program: var(--gold);
+
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Reset                                                                      */
+/* ------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  /* No smooth scroll: a judge tapping through 23 booths wants the next row
+     under their thumb immediately, and smooth scroll makes scripted scroll
+     position unreadable. */
+  -webkit-text-size-adjust: 100%;
+
+  /* Reserve the scrollbar's space permanently.
+   *
+   * This is what stops the page jittering when the review dialog opens. The
+   * dialog locks the page with `body { overflow: hidden }`, which removes the
+   * scrollbar; on a classic-scrollbar setup that hands ~15px back to the
+   * viewport, and because `.shell-main` is a `margin: 0 auto` centred column,
+   * every row and card shifts right by half that — a visible sideways jump at
+   * the exact moment a judge is being asked to check their totals.
+   *
+   * `stable` keeps the gutter whether or not the page is currently
+   * scrollable, so the layout is identical with the dialog open and closed.
+   * It is a no-op where scrollbars are overlays (most phones, macOS by
+   * default), which is why the jitter only shows on some machines. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; text-wrap: balance; line-height: 1.2; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+input { font: inherit; }
+
+:where(a) { color: var(--gold-bright); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+/**
+ * One visible focus ring everywhere. Judges tab through sheets on tablets with
+ * keyboards attached, and an invisible focus ring loses their place.
+ *
+ * ONE ring, deliberately. This used to also set `border-radius: 4px`, which
+ * did two bad things: it overrode each field's real radius (so a 12px input
+ * squared off the moment it was focused), and combined with the per-field
+ * `border-color` change it drew a *second* concentric ring, the double focus
+ * ring visible on every text input in the app.
+ *
+ * The outline is now the only focus affordance. Fields no longer recolour
+ * their border on focus; see the note on `.auth-card input:focus-visible`.
+ */
+:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Primitives                                                                 */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Frosted glass, the one definition, shared by every card in the app.
+ *
+ * Lifted out of `.auth-card`, where it started, so the sign-in card, the
+ * segment list, the score rows and the review dialog are all literally the
+ * same surface rather than four drifting approximations of it.
+ *
+ * The tint is deliberately light and the BLUR does the legibility work, not
+ * the opacity: that is what keeps a four-digit PIN, or a score a judge is
+ * typing, readable over the backdrop's rays and skyline. Raising the tint to
+ * compensate for anything is the wrong move; raise the blur.
+ *
+ * `--frost-tint` lets a card sit heavier where it must. The score rows use a
+ * higher value than the sign-in card because a judge reads numbers off them
+ * under stage lights, and the sheet is a working surface rather than an
+ * opening composition.
+ */
+.frosted {
+  --frost-tint: 1;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in oklch, var(--surface-2) calc(22% * var(--frost-tint)), transparent) 0%,
+      color-mix(in oklch, var(--surface) calc(15% * var(--frost-tint)), transparent) 46%,
+      color-mix(in oklch, var(--ground) calc(25% * var(--frost-tint)), transparent) 100%
+    );
+  -webkit-backdrop-filter: blur(56px) saturate(140%);
+  backdrop-filter: blur(56px) saturate(140%);
+  /* A hairline top edge catches the light from above, the way a real glass
+     panel does; the outer ring keeps the card's silhouette off the backdrop.
+   *
+   * Dimmed from 12%/24%/15% once this surface went from ONE card to every card
+   * on the sheet. A ring that reads as a soft edge on a single sign-in panel
+   * over a dark backdrop becomes a bright stack of outlines when eight score
+   * rows carry it down the page, the effect compounds, so the per-card value
+   * has to come down. */
+  border: 1px solid color-mix(in oklch, var(--ink) 7%, transparent);
+  border-top-color: color-mix(in oklch, var(--ink) 13%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ink) 8%, transparent),
+    0 2px 6px rgba(0, 0, 0, .34),
+    0 30px 70px -28px rgba(0, 0, 0, .92);
+}
+
+/* `backdrop-filter` is the whole effect. Where it is unsupported a frosted
+   card would fall back to a mostly-transparent panel with the backdrop showing
+   straight through its text, so give those browsers a near-opaque surface. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .frosted {
+    background: color-mix(in oklch, var(--surface) 94%, black);
+  }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.eyebrow {
+  display: block;
+  color: var(--ink-dim);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.lede { color: var(--ink-muted); }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  /* 48px minimum height: a thumb on a phone, not a mouse on a desktop. */
+  min-height: 48px;
+  padding: .75rem 1.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.button:hover:not(:disabled) { background: var(--surface-3); }
+.button:disabled { opacity: .45; cursor: not-allowed; }
+
+.button--primary {
+  background: var(--program);
+  border-color: transparent;
+  /* Dark ink on a bright accent, the accent ramps are all light. */
+  color: oklch(0.2 0.04 90);
+}
+.button--primary:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--program) 88%, white);
+}
+
+.button--ghost { background: transparent; }
+.button--ghost:hover:not(:disabled) { background: var(--surface-2); }
+
+.button--full { width: 100%; }
+
+/**
+ * Back to the segment list, a round icon button.
+ *
+ * Was a gold text link reading "← My segments". At the top of the score sheet
+ * that put a second gold, bold, sentence-shaped element directly above the
+ * segment title, and the two competed: the title is the subject of the screen,
+ * the back control is furniture. An icon in a quiet circle keeps the target
+ * size while giving the heading the only voice in that corner.
+ *
+ * 40px, which clears the 24px minimum for a pointer target with room to spare
+ *, this is used one-handed at a judges' table, sometimes in the dark.
+ */
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  /* Pulled up toward the header and held close to the title below, so the
+     control reads as belonging to the sheet it returns from rather than
+     floating in the page's top padding. */
+  margin: -.35rem 0 var(--sheet-gap);
+  /* Only the ring is bordered, the button itself is bare, so the label sits
+     on the page rather than inside a second box. Right padding gives the text
+     a little room before the next thing in the row. */
+  padding: 0 .4rem 0 0;
+  border: 0;
+  background: none;
+  color: var(--gold-bright);
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The circle. A span, so the button keeps one accessible name and one tap
+   target, the whole row, label included, is clickable. */
+.back-button__ring {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--surface);
+  transition:
+    background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+/* Hover moves the ring, not the text: underlining a label attached to a
+   circular icon made the two read as separate controls. */
+.back-button:hover .back-button__ring {
+  border-color: color-mix(in oklch, var(--gold-bright) 42%, transparent);
+  background: var(--surface-2);
+}
+
+/* Press is a fill change only, no arrow movement. The 1px nudge that used to
+   be here read as a jitter on a control that is tapped and immediately
+   navigates away, so the motion never resolved. */
+.back-button:active .back-button__ring { background: var(--surface-2); }
+
+/* The focus ring belongs on the circle, not on the whole inline-flex row,
+   which would draw a wide rectangle around button and label together. */
+.back-button:focus-visible { outline: none; }
+.back-button:focus-visible .back-button__ring {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-button__ring { transition: none; }
+}
+
+/**
+ * Segment status, a bare label, not a pill.
+ *
+ * This was a bordered, rounded chip. Inside a frosted card that put a second
+ * ring inside the card's own ring, and the pill's `--mint 45%` outline was
+ * brighter than the card edge containing it, so the status read as the loudest
+ * thing on a row whose actual subject is the segment name.
+ *
+ * The colour alone carries the state now. It is not the only cue, the label
+ * says the state in words, so nothing depends on hue perception.
+ */
+.badge {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge--open   { color: var(--mint); }
+.badge--draft  { color: var(--ink-dim); }
+.badge--closed { color: var(--amber); }
+.badge--locked { color: var(--rose); }
+.badge--done   { color: var(--mint); }
+
+/**
+ * Inline form error.
+ *
+ * Was a filled rose box with a full 1px border, an alert panel, which is far
+ * too much furniture for "you mistyped your PIN". A judge mistypes a PIN
+ * routinely; it is a correction, not an incident, and the old treatment drew
+ * more attention than the field it was about.
+ *
+ * Now plain rose text on the card's own ground, no fill, no ring, no marker
+ * rule. The colour is the entire signal. An intermediate version kept a 2px
+ * left border as a quiet indicator; that still read as a shape sitting in the
+ * form's left margin, out of line with the labels above it, so it went too.
+ */
+.form-error {
+  /* Aligned flush with the labels and inputs above, nothing indents it, so
+     it sits in the form's text column rather than beside it. */
+  padding: .1rem 0;
+  /* Rose text rather than full `--ink`: with no fill and no rule, the colour
+     carries the meaning by itself. Mixed a little further toward rose than
+     the bordered version, to make up for the dropped marker. */
+  color: color-mix(in oklch, var(--rose) 86%, var(--ink));
+  font-size: .86rem;
+  line-height: 1.45;
+}
+
+/**
+ * Fade in and out.
+ *
+ * The message used to be mounted and unmounted outright, so it appeared and
+ * disappeared between one frame and the next, and because it sits in the
+ * form's grid flow, that snapped the Sign in button down and back up with it.
+ *
+ * `.is-leaving` is set for one beat before unmount (see SignIn.tsx), which is
+ * what gives it something to dissolve during. `grid-template-rows` animates
+ * the row itself so the button glides rather than jumps.
+ */
+.form-error-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* Slight negative margin: the slot participates in the form's .75rem gap,
+     and the error reads as attached to the field above it, not floating
+     equidistant between two rows. */
+  margin-top: -.15rem;
+  transition:
+    grid-template-rows var(--dur-1) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
+}
+
+.form-error-slot > * { min-height: 0; overflow: hidden; }
+
+.form-error-slot.is-leaving {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+/* Reduced motion: keep the message, drop the dissolve. It still unmounts a
+   beat later, which is harmless. */
+@media (prefers-reduced-motion: reduce) {
+  .form-error-slot { transition: none; }
+}
+
+.notice {
+  /* Global paragraph margins are reset app-wide, so without an explicit margin
+     the notice sat flush against the candidate list. It is used mid-stack on
+     the score sheet, so it carries its own bottom gap on the shared beat. */
+  margin: 0 0 var(--sheet-gap);
+  padding: .85rem 1rem;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--program);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-size: .9rem;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* App shell                                                                  */
+/* ------------------------------------------------------------------------- */
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* NO z-index here, deliberately.
+   *
+   * Adding `position: relative; z-index: 1` to this element made the backdrop
+   * paint over the page: it turned `.shell` into a stacking context, and
+   * inside it the backdrop (`z-index: 0`, positioned) then out-painted
+   * `.shell-main`, which has no z-index of its own. The header survived only
+   * because it carries `z-index: 20`, which is exactly why the screenshot
+   * showed a correct header above an empty page.
+   *
+   * The backdrop is `position: fixed` and sits at the document level instead,
+   * so `.shell-main` below just needs its own index to clear it. */
+}
+
+.shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .8rem clamp(1rem, 4vw, 2rem);
+  border-bottom: 1px solid var(--line-soft);
+  /* Solid, not translucent: a blurred header over a scrolling score sheet
+     makes the numbers underneath hard to read on a phone in bright light. */
+  background: var(--ground);
+}
+
+.shell-brand { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+/**
+ * The logo is a WORDMARK, not a square icon.
+ *
+ * It was `52px x 52px` with `object-fit: contain`, which fitted a 596x324
+ * (1.84:1) image into a square, so the visible mark was only ~52x28px, and
+ * more than half the box was empty. Sizing by height and letting the width
+ * follow the aspect renders it ~3.4x larger in the same header row.
+ *
+ * Height-driven with `width: auto` rather than a fixed pair, so the box always
+ * matches the art and a re-exported asset cannot end up letterboxed again. */
+.shell-brand img {
+  width: auto;
+  height: 52px;
+  flex-shrink: 0;
+}
+/**
+ * Hairline divider between the logomark and the "Judges' Panel" wordmark.
+ *
+ * A left border on the text block, not an element in the markup. The block is
+ * already `aria-hidden` and already hidden wholesale under 560px (see the
+ * media query below), so hanging the rule on it means the divider inherits
+ * both behaviours for free and can never outlive the text it separates.
+ *
+ * A border rather than a `::before`: the block stacks `strong` over `span`, so
+ * a pseudo-element would have had to become a flex child and would have broken
+ * that two-line stack. The border spans exactly the block's own height, which
+ * is also what we want visually, it divides the two text lines rather than
+ * running the full 52px of the logo, where it read as a wall between two
+ * unrelated things instead of a seam inside one lockup.
+ */
+.shell-brand > div {
+  min-width: 0;
+  padding-left: .65rem;
+  border-left: 1px solid transparent;
+  /* `border-image` so the rule can fade at both ends; a flat `border-color`
+     gave a hard-ended bar. */
+  border-image: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklch, var(--frame-mid) 34%, transparent) 22%,
+      color-mix(in oklch, var(--frame-mid) 34%, transparent) 78%,
+      transparent
+    ) 1 / 1px stretch;
+}
+
+.shell-brand strong {
+  /* Never wrap the wordmark. On a 430px phone "JUDGES' PANEL" broke onto two
+     lines and pushed the header to three rows tall, which then hid the sticky
+     sheet title underneath it. */
+  white-space: nowrap;
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.shell-brand span { display: block; color: var(--ink-dim); font-size: .72rem; letter-spacing: .04em; }
+
+.shell-who {
+  /* `1rem` of guaranteed separation: with the larger logo the brand and the
+     judge's name were touching on a 430px phone, which read as one run-on
+     string. */
+  margin-left: auto;
+  padding-left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 0;
+}
+.shell-who__name { text-align: right; min-width: 0; }
+.shell-who__name strong {
+  display: block;
+  /* "Chairman of the Board" wrapped and grew the header. Clip instead, the
+     seat line below it is the part that disambiguates two judges anyway.
+     32vw rather than 42vw so the larger logo and the wordmark keep their
+     room on a phone; the name has to truncate at this width regardless. */
+  overflow: hidden;
+  max-width: 32vw;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .88rem;
+  font-weight: 600;
+}
+@media (min-width: 700px) {
+  /* Desktop has the room to show the whole name. */
+  .shell-who__name strong { max-width: 22rem; }
+}
+.shell-who__name span { display: block; color: var(--ink-dim); font-size: .74rem; }
+
+/* Below ~420px the brand subtitle is the first thing worth losing. */
+@media (max-width: 420px) {
+  .shell-brand span { display: none; }
+}
+
+/**
+ * Below ~560px the header cannot fit the logo, the wordmark AND the judge's
+ * name without them overlapping, the wordmark and name were colliding by up
+ * to 41px at 320px.
+ *
+ * The wordmark is what goes: the logo already reads "Buglasan Festival 2026",
+ * so "JUDGES' PANEL · Buglasan Festival 2026" beside it is saying the festival
+ * name twice. Whose sheet this is matters far more on a shared tablet than a
+ * second copy of the branding, so the name keeps the room.
+ */
+@media (max-width: 560px) {
+  .shell-brand > div { display: none; }
+  /* 42vw, down from 52vw: the wordmark logo is ~3.4x its old rendered width,
+     and at the old cap the logo, the name and Sign out overran a 320px header
+     by 31px. This is the widest the name can be at 320px and still leave the
+     logo its room. */
+  .shell-who__name strong { max-width: 42vw; }
+  /* With the text wordmark gone the logo is the only branding left, so it can
+     take the freed room, but capped in `vw` too, because at 320px a 96px
+     mark plus the judge's name is still tight. */
+  .shell-brand img { height: clamp(38px, 13vw, 52px); }
+}
+
+.shell-main {
+  /* Above the fixed backdrop (`z-index: 0`). Without this the rays and skyline
+     paint over the score sheet, a positioned element beats a non-positioned
+     one at the same level regardless of DOM order. */
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem) 4rem;
+}
+
+/* Festival line + PlanOut credit, stacked and centred. Was a single text node
+   until the credit was added, so it needs to be a grid now rather than relying
+   on `text-align` alone. */
+.shell-footer {
+  /* Same reason as `.shell-main`: clear the fixed backdrop. */
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: .85rem; /* same rhythm as the sign-in footer's stack */
+  padding: 1.5rem clamp(1rem, 4vw, 2rem);
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-dim);
+  font-size: .78rem;
+  text-align: center;
+}
+
+/* The footer's own paragraph, reset the global paragraph margin so the grid
+   gap is the only spacing between the line and the credit. */
+.shell-footer p { margin: 0; }
+
+/* The credit is a shade quieter here than on sign-in. There it is part of the
+   opening composition; on a score sheet it is a persistent footer under work
+   the judge is concentrating on, and should not pull the eye. */
+.shell-footer .planout-credit { opacity: .62; }
+/* Both states together, matching the base rule's pairing at `.planout-credit
+   :hover, :focus-visible`, listing hover alone would leave keyboard focus
+   inheriting the base `opacity: 1` and lifting further than a mouse does. */
+.shell-footer .planout-credit:hover,
+.shell-footer .planout-credit:focus-visible { opacity: .85; }
+
+/* ------------------------------------------------------------------------- */
+/* Gold ramp, consumed by the brushed-metal button                           */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Three stops rather than one colour: real metal is a gradient because it
+ * reflects a bright source on one face and a dark surround on the other. A
+ * single gold fill reads as yellow plastic.
+ *
+ * Declared on `:root`, not on `.auth-card` where they started. The route
+ * loader (`.route-loader`) is rendered above the card, it replaces the whole
+ * screen while a lazy chunk arrives, so a card-scoped variable was invisible
+ * to it and the spinner fell back to an unstyled colour. These are the one
+ * definition of the app's gold; anything gold should read from them rather
+ * than restating a hex.
+ */
+:root {
+  --frame-hi: oklch(0.93 0.09 92);
+  --frame-mid: oklch(0.79 0.135 82);
+  --frame-lo: oklch(0.52 0.1 68);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Brushed-metal button                                                       */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The Sign in button.
+ *
+ * Four layers, bottom to top:
+ *   1. a vertical gold ramp, the base metal, light from above
+ *   2. a fine repeating gradient, the brush grain
+ *   3. a diagonal specular band, the highlight sweeping across the face
+ *   4. inset ring highlights on the top and bottom edges, the bevel
+ *
+ * `background-blend-mode` composites 1-3 in one element. Doing this with
+ * stacked pseudo-elements would work too, but the button already uses
+ * `::before` for its icon spacing in some states and blend modes keep it to
+ * one box.
+ */
+.auth-card .button--metal {
+  position: relative;
+  border: 1px solid var(--frame-lo);
+  border-top-color: var(--frame-hi);
+  border-radius: 12px;
+  /* Dark ink on bright metal. Measured against the mid stop, not the
+     highlight, so the label stays legible across the whole face. */
+  color: oklch(0.24 0.05 74);
+  text-shadow: 0 1px 0 color-mix(in oklch, var(--frame-hi) 32%, transparent);
+  background-image:
+    /* Specular sweep, kept restrained. At 46% white this blew out the middle
+       of the face into near-white and the button glared next to the dark
+       inputs; 18% still reads as a reflection without the hotspot. */
+    linear-gradient(104deg, transparent 26%, color-mix(in oklch, white 18%, transparent) 48%, transparent 68%),
+    /* brush grain, 2px pitch, very low contrast */
+    repeating-linear-gradient(90deg,
+      color-mix(in oklch, black 5%, transparent) 0 1px,
+      transparent 1px 2px),
+    /* Base metal, seated a little deeper: starting from the mid stop rather
+       than the highlight keeps the top edge from flaring. */
+    linear-gradient(180deg,
+      color-mix(in oklch, var(--frame-hi) 70%, var(--frame-mid)) 0%,
+      var(--frame-mid) 44%,
+      var(--frame-lo) 100%);
+  background-blend-mode: screen, multiply, normal;
+  box-shadow:
+    /* The bevel highlight, halved, this and the sweep were stacking into one
+       bright band across the top of the button. */
+    inset 0 1px 0 color-mix(in oklch, white 26%, transparent),
+    inset 0 -1px 0 color-mix(in oklch, black 24%, transparent),
+    0 1px 2px rgba(0, 0, 0, .4),
+    /* No outer gold glow: it lit the card around the button and read as a
+       focus state on a control that was not focused. */
+    0 6px 18px -10px rgba(0, 0, 0, .55);
+}
+
+.auth-card .button--metal:hover:not(:disabled) {
+  /* Brighten the base rather than moving the button: a shifting primary
+     action under a thumb is worse than a static one. */
+  background-image:
+    linear-gradient(104deg, transparent 24%, color-mix(in oklch, white 26%, transparent) 48%, transparent 68%),
+    repeating-linear-gradient(90deg,
+      color-mix(in oklch, black 4%, transparent) 0 1px,
+      transparent 1px 2px),
+    /* A small lift off the resting state, enough to register as hover, not a
+       second brightness tier. */
+    linear-gradient(180deg,
+      var(--frame-hi) 0%,
+      color-mix(in oklch, var(--frame-mid) 94%, white) 44%,
+      var(--frame-lo) 100%);
+}
+
+.auth-card .button--metal:active:not(:disabled) {
+  /* Press: flip the bevel so the face reads as pushed in. */
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, .34),
+    inset 0 -1px 0 color-mix(in oklch, white 22%, transparent);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Sign-in backdrop, ported fireworks + light shafts (AuthBackdrop.tsx)      */
+/* ------------------------------------------------------------------------- */
+
+/* Fixed and behind everything. The canvas paints the shafts and shells; this
+   element supplies the ground they sit on, the same lifted-green atmosphere
+   wash the public site puts behind its WebGL stage. */
+.auth-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 78% -6%, color-mix(in oklch, var(--mint) 8%, transparent), transparent 70%),
+    radial-gradient(52rem 44rem at -8% 62%, color-mix(in oklch, var(--gold-deep) 7%, transparent), transparent 70%),
+    linear-gradient(168deg, oklch(0.148 0.022 158) 0%, oklch(0.118 0.017 156) 54%, oklch(0.092 0.013 158) 100%);
+}
+
+.auth-backdrop__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Grounds the shafts and darkens the lower edge the rockets rise from. */
+.auth-horizon {
+  position: absolute;
+  inset: auto 0 0;
+  height: 38vh;
+  /* The bottom stop is LIGHTER than the ground, not darker.
+   *
+   * It used to darken toward the bottom edge (`--ground` mixed 88% with
+   * black), which was right when the rockets rose out of a black sea line.
+   * The skyline silhouette now sits on this band, and a near-black shape on a
+   * near-black ground is nothing, the two measured 1.08:1. Lifting the stop
+   * gives the dark landmarks something to be dark against, which is what
+   * makes them read as a silhouette at all.
+   *
+   * The lift is kept LOW on purpose. It is the only thing that makes the
+   * silhouette visible, so it doubles as the volume knob: at 12% the skyline
+   * read as too present, and this keeps the shape there when you look for it
+   * and receding when you do not, without touching the layer's opacity,
+   * which would have softened the landmark edges.
+   *
+   * 8%, not 5%: the silhouette became dark GREEN rather than near-black, and
+   * green sits closer to this ground's luminance, so the same 5% lift that
+   * suited a black shape left the green one at 1.08:1. 8% restores the same
+   * ~1.16:1 subtlety the black version had at 5%.
+   *
+   * 12% is the hard ceiling regardless of taste: the footer's PlanOut credit
+   * uses `--ink-dim` and sits on this band, and an 18% lift dropped it to
+   * 3.93:1, under the 4.5:1 the token ramp is documented to hold. At 8% that
+   * text sits at a comfortable 5.49:1. */
+  background: linear-gradient(
+    to top,
+    color-mix(in oklch, var(--ground) 100%, white) 0%,
+    color-mix(in oklch, var(--ground) 94%, transparent) 34%,
+    transparent 100%
+  );
+}
+
+/**
+ * Dumaguete skyline, full-bleed along the bottom edge.
+ *
+ * The asset was supplied as a 1672x941 PNG whose top 53% was empty space, at
+ * 537KB. It is cropped to its content (1672x432) and re-encoded to WebP here,
+ * which is 64% smaller, 198KB, for the same pixels. That matters on this
+ * screen: it is the first thing a judge loads, on venue wifi.
+ *
+ * `background-size: 100% auto` rather than `cover` on purpose, `cover` would
+ * scale the art up on a narrow viewport until the landmarks were unreadably
+ * large, whereas this keeps the silhouette's own proportions and lets it get
+ * shorter as the screen narrows.
+ *
+ * WHY THE FILTER: the artwork is filled a very dark green (#013316) which
+ * measures 1.06:1 against the page ground and 1.33:1 against the darkened
+ * horizon, invisible. `brightness()` lifts it to a readable silhouette
+ * without recolouring the asset, and `saturate` keeps it in the festival's
+ * green family rather than going grey.
+ */
+.auth-skyline {
+  position: absolute;
+  inset: auto 0 0;
+  /* Height follows the art's own ratio, capped.
+   *
+   * The element used to be a fixed `clamp()` band. That was harmless while
+   * the asset still carried its empty upper half, the overflow was sky, but
+   * the cropped file is all skyline, so the same band sliced the tops off the
+   * church spires and the bell tower (measured: 219px of real art clipped at
+   * 1440px wide).
+   *
+   * `aspect-ratio` sizes the box to whatever the full-width art needs, and
+   * `max-height` stops it climbing the screen on a wide monitor. Where the cap
+   * bites, `background-size: contain` below shrinks the art to fit rather than
+   * cropping it. */
+  /* Height is purely the art's own ratio at full width. NO max-height.
+   *
+   * A cap was tried twice and both failures are worth recording. `contain`
+   * kept the whole silhouette but letterboxed it inward (249px of inset each
+   * side at 1920px), losing the full-bleed. Cropping from the top instead kept
+   * full-bleed but cut real landmarks: measuring the art's ink profile, the
+   * spire tips begin just 5% down from its top edge, so the 27-35% that a
+   * 30vh cap discarded on a desktop took the bell tower and both church
+   * spires with it.
+   *
+   * So the band is simply as tall as a full-width skyline is. On a 1920px
+   * monitor that is ~496px, which is a lot of screen, but it is the bottom of
+   * a decorative backdrop behind a centred card, the art is 91% transparent
+   * sky in its upper half, and the page already reserves a footer band over
+   * it. Nothing in the composition competes for that space. */
+  aspect-ratio: 1672 / 432;
+  background-image: url('/assets/skyline-dumaguete.webp');
+  background-position: bottom center;
+  background-repeat: no-repeat;
+  /* Full width, always, the brief is full-bleed, so the art spans the
+     viewport edge to edge and its height follows from that. `contain` was
+     tried and rejected: it preserves the whole silhouette but letterboxes it
+     inward (measured 249px of inset each side at 1920px wide), which is the
+     opposite of full-bleed. */
+  background-size: 100% auto;
+  /* A DARK GREEN silhouette, not black.
+   *
+   * The previous `brightness(.2) saturate(.35)` was wrong on both terms. The
+   * desaturation was the real culprit: `saturate(.35)` collapsed the fill's
+   * channel spread to 3 (rgb(5,8,6)), which is grey by any measure. And at
+   * brightness .2 the channels were so low, rgb(0,10,4), that no amount of
+   * saturation could show a hue anyway.
+   *
+   * So brightness comes up to .4 to give the green somewhere to live, and
+   * saturation goes ABOVE 1 to defend the hue against that darkening.
+   * Measured, the fill lands near rgb(0,22,7): a channel spread of 22, which
+   * reads unmistakably green, while still sitting darker than the ground
+   * behind it so the shape stays a silhouette rather than a lit object.
+   *
+   * The `contrast` bump keeps the palm fronds and railings from muddying
+   * together at this low overall level. */
+  filter: brightness(.4) saturate(1.3) contrast(1.1);
+  /* Full strength. At .85 the lifted horizon showed through the landmarks and
+     softened exactly the edge this is trying to sharpen. */
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Route loader, see RouteLoader.tsx                                         */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Shown while a code-split route chunk is fetched.
+ *
+ * Fills the viewport so the previous screen does not sit half-torn-down behind
+ * it, and centres a small gold spinner. Hidden until the component flips
+ * `data-visible` (see `SPINNER_DELAY_MS`) so a fast navigation shows nothing
+ * at all rather than a flash.
+ */
+.route-loader {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 100dvh;
+  padding: 2rem 1rem;
+  /* Not transparent: the ground has to be painted here, because this replaces
+     a screen rather than overlaying one. */
+  background: var(--ground);
+  opacity: 0;
+  transition: opacity .2s var(--ease-out);
+}
+.route-loader[data-visible='true'] { opacity: 1; }
+
+/**
+ * The spinner.
+ *
+ * A 3/4 gold arc on a faint track, rotating. Built from `border` rather than
+ * an SVG or a background image so it costs nothing to load, a loader that
+ * needs its own asset is self-defeating.
+ *
+ * The gold is `--frame-mid`, the Sign in button's base-metal stop, and the
+ * track is the same colour at 18% so the ring reads as one object rather than
+ * a gold arc next to a grey circle.
+ */
+.route-loader__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid color-mix(in oklch, var(--frame-mid) 18%, transparent);
+  border-top-color: var(--frame-mid);
+  border-radius: 50%;
+  /* Linear, not eased: an eased spin reads as stuttering because the slow
+     phase looks like a stall, exactly the "is it stuck?" impression this
+     screen must avoid. */
+  animation: route-loader-spin .8s linear infinite;
+}
+
+@keyframes route-loader-spin {
+  to { transform: rotate(1turn); }
+}
+
+/**
+ * Reduced motion: keep the loader, drop the spin.
+ *
+ * A judge who has asked the OS for less motion still needs to know the app is
+ * working, so the arc stays and pulses its opacity instead, a change in
+ * brightness rather than movement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .route-loader__spinner {
+    animation: route-loader-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes route-loader-pulse {
+    0%, 100% { opacity: .35; }
+    50% { opacity: 1; }
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Sign in                                                                    */
+/* ------------------------------------------------------------------------- */
+
+.auth-page {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  /* Padding reserves a band at BOTH ends, so the centred card is never laid
+     out underneath the two out-of-flow elements that bracket it.
+   *
+   * Top, the hero mark. It is `position: absolute` (see `.hero-mark`), so it
+   * contributes nothing to the card's layout; without this the card centred
+   * as if the mark were not there and the two overlapped on every viewport
+   * shorter than ~1080px. Has to cover the mark's own `top` offset plus its
+   * height (~164px) plus a gap. Measured across viewport heights from 568 to
+   * 1440px, this leaves at least 26px between the mark and the card; at
+   * 26vh the gap closed to 2px on a ~700px screen.
+   *
+   * Bottom, the footer, for the same reason. Has to stay ahead of the
+   * footer's own `bottom` offset plus its height. */
+  padding: clamp(14.5rem, 29vh, 17.5rem) 1rem clamp(8.5rem, 23vh, 13rem);
+  /* The backdrop is fixed, so it paints the whole viewport regardless; this
+     just keeps the page's own ground from showing through before it loads. */
+  isolation: isolate;
+}
+
+/**
+ * The footer sits at the bottom of the page, independent of the card.
+ *
+ * It used to be a second grid row, which meant the card and the footer shared
+ * one centred block: nudging the card down grew its row and dragged the footer
+ * with it. Anchoring the footer to the page bottom is what actually decouples
+ * them, so the card's offset moves the card alone.
+ *
+ * `position: absolute` against `.auth-page` (which is `position: relative`)
+ * rather than `fixed`, so it scrolls away with the page on a short viewport
+ * instead of sitting over the Sign in button.
+ */
+.auth-footer {
+  position: absolute;
+  right: 0;
+  /* Lifted well clear of the viewport edge. At 4vh it sat almost on the
+     bottom of the window and read as browser chrome rather than part of the
+     composition. */
+  bottom: clamp(2.5rem, 11vh, 7rem);
+  left: 0;
+}
+
+.auth-card {
+  /* NO top margin.
+   *
+   * This used to carry `margin-top: clamp(0px, 11vh, 7rem)` to nudge the card
+   * down from dead centre. Once the 3D mark was added above it, that margin
+   * became up to 112px of dead space BETWEEN the mark and the card.
+   *
+   * The card now simply centres in the page grid and owns no vertical offset.
+   * The mark is out of flow (`position: absolute`, see `.hero-mark`) and the
+   * footer likewise, so all three position independently and none of them can
+   * shove the others around. */
+  /* Above the backdrop. The rays and bursts are behind at z-index 0. */
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+  text-align: center;
+  /* `--radius-xl` from the token scale, not the hardcoded 22px this carried.
+     Every other card in the app rounds off the same ramp, and a lone
+     off-scale value is what made this card read as a different component. */
+  border-radius: var(--radius-xl);
+
+  /* The frosted surface lives in `.frosted`, which this element carries
+     alongside `.auth-card`, so only the sign-in card's own geometry is set
+     here. It previously carried `.panel` instead, whose opaque `--surface`
+     background overrode the glass and left this card looking solid while
+     every judge card was frosted. */
+}
+
+/* ------------------------------------------------------------------------- */
+/* 3D hero wordmark, see HeroMark.tsx                                        */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The gold 3D mark above the sign-in card.
+ *
+ * The box is sized in CSS and never by the model, so it occupies the same
+ * space before, during and after the 8MB GLB arrives and the mark cannot
+ * resize the layout as it loads.
+ */
+.hero-mark {
+  /* Anchored to the TOP of the page, independent of the card, the mirror of
+     what `.auth-footer` does at the bottom, and for the same reason.
+   *
+   * The mark and the card used to share a wrapper (`.auth-head`), which meant
+   * every vertical adjustment to one moved the other: raising the mark either
+   * dragged the card up with it or opened a gap between them, and the card's
+   * own centring fought the mark's offset. Taking the mark out of the card's
+   * layout flow entirely is what decouples them, now `top` positions the
+   * mark and nothing else, exactly as `bottom` positions the footer.
+   *
+   * `absolute` against `.auth-page` (which is `position: relative`) rather
+   * than `fixed`, so it scrolls with the page on a short viewport instead of
+   * sitting over the card. */
+  position: absolute;
+  /* Anchored to the page's CENTRE LINE, not its top edge.
+   *
+   * `top` was the obvious knob and it was the wrong one. The card is centred
+   * in the page grid, so it moves down as the viewport grows while a
+   * top-anchored mark stays put, the gap between them measured 26px at
+   * 700px tall and 305px at 1440px. No single `top` value fixes that.
+   *
+   * The card's own top edge is what the mark needs to track, and that sits a
+   * fixed distance above centre once the card is no longer height-
+   * constrained (measured: a constant 235px from ~1080px up). Anchoring the
+   * mark's BOTTOM to `50%` plus that offset holds the gap steady, the same
+   * way `.auth-footer` gets a stable position from `bottom`.
+   *
+   * The middle term is the gap itself, the only value to change if the mark
+   * should sit nearer or further from the card.
+   *
+   * `min()` is the guard for short viewports. Below ~844px tall the card is
+   * height-constrained and stops tracking centre, so the centre-relative
+   * anchor overshot and pushed the mark off the top of the screen (measured
+   * -67px at 568px tall). The second term pins it a safe distance below the
+   * viewport top instead, and whichever offset is smaller wins, centre
+   * tracking on a normal screen, a fixed top margin on a cramped one. */
+  bottom: min(calc(50% + 215px + 1.25rem), calc(100% - 164px - 3rem));
+  right: 0;
+  left: 0;
+  /* Overrides the grid centring it no longer participates in. */
+  margin-inline: auto;
+  /* Behind the card, which is `z-index: 1`. The card is translucent, so
+     anything overlapping it shows through the glass; this guarantees the mark
+     loses that fight if the two are ever pushed together on a short
+     viewport. */
+  z-index: 0;
+  display: grid;
+  width: 100%;
+  /* Narrower than the card (420px) on purpose: at full card width the mark
+     competed with the form for the eye. */
+  max-width: 300px;
+  /* Height comes from the aspect ratio alone.
+   *
+   * This was once `height: clamp(...)` on a grid item, which a stretched grid
+   * row was free to grow, the mark rendered ~2.7x its intended height and
+   * spilled over the card. Being out of flow makes that impossible now, but
+   * the explicit ratio is still what keeps the box the mark's own shape.
+   *
+   * Matched to the mark's ~1.83:1 silhouette (plus the camera's fit margin) so
+   * the mesh fills the box instead of being letterboxed: at 3.5:1 the camera
+   * fitted to height and left half the element as empty air.
+   *
+   * No margin-bottom, and no `align-self`/`justify-self`, the mark is out of
+   * flow, so it cannot push or pull the card, and `inset` plus
+   * `margin-inline: auto` does the centring. */
+  aspect-ratio: 300 / 164;
+}
+
+/* No glow layers behind the mark.
+ *
+ * Three stacked radial gradients used to sit here. However faint each was,
+ * their combined falloff had a visible outer edge, and because they were
+ * painted on the element's own box that edge traced a rectangle-ish halo, it
+ * read as a container around the mark rather than as light coming off it. A
+ * gradient anchored to a box cannot avoid that: the box IS the shape.
+ *
+ * The gold now carries its own light instead, from the environment map, the
+ * key/rim lights and the glitter roughness map in HeroMark.tsx, all of which
+ * follow the letters, because they are lighting the actual mesh. */
+
+.hero-mark__canvas {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  /* Fades in when the first frame is drawn. There is no placeholder image
+     behind it on purpose, see the note in HeroMark.tsx. */
+  opacity: 0;
+  transition: opacity .5s var(--ease-out);
+}
+
+/* No model, no box: the slot collapses rather than reserving space for a mark
+   that will never appear (no WebGL, reduced data, narrow viewport, failed
+   fetch).
+
+   ONLY on a real failure, never while loading. Collapsing during load
+   deadlocked the component, the effect sizes the renderer from this box, and
+   a zero height made it bail before it could ever reach `live`. */
+.hero-mark[data-phase='failed'] {
+  aspect-ratio: auto;
+  height: 0;
+  margin-bottom: 0;
+}
+.hero-mark[data-phase='live'] .hero-mark__canvas { opacity: 1; }
+/* The canvas three.js appends: block, so it does not sit on a text baseline
+   and leave a gap under the mark. */
+.hero-mark__canvas canvas { display: block; width: 100%; height: 100%; }
+
+/* Reduced motion keeps the mark (it is a static frame there) but drops the
+   cross-fade, which is itself motion. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-mark__canvas { transition: none; }
+}
+
+/* No `.auth-logo` rule: the sign-in card currently has no logo. If one is
+   added back, give it BOTH width and height, the source asset is 596x324, so
+   without a height cap the intrinsic size wins and it pushes the card past the
+   viewport on a phone. */
+.auth-card h1 { margin: .5rem 0 .35rem; font-size: 1.6rem; }
+.auth-card .lede { margin-bottom: 1.5rem; font-size: .92rem; }
+
+.auth-card form { display: grid; gap: .75rem; text-align: left; }
+.auth-card label { font-size: .82rem; font-weight: 600; color: var(--ink-muted); }
+/* Wells cut into the glass: darker than the card, with a top inner shadow so
+   they read as recessed rather than as flat rectangles pasted on. Kept a solid
+   dark tint rather than another translucent layer, stacking glass on glass
+   would put the backdrop directly behind the characters being typed. */
+.auth-card input {
+  width: 100%;
+  min-height: 48px;
+  padding: .7rem .85rem;
+  border: 1px solid color-mix(in oklch, var(--ink) 10%, transparent);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--ground) 82%, black);
+  color: var(--ink);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .5);
+}
+/* No `border-color` change on focus: the global outline is the focus ring, and
+   recolouring the border here drew a second ring just inside it. Lightening
+   the well is enough of a secondary cue and cannot double up. */
+.auth-card input:focus-visible {
+  background: color-mix(in oklch, var(--ground) 92%, black);
+}
+
+/* The PIN field: big, spaced digits, centred. It is typed by someone holding a
+   phone in one hand at a judges' table. */
+.auth-card input.pin {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: .5em;
+  text-align: center;
+  text-indent: .5em;
+}
+
+/* Wraps the festival line and the PlanOut credit so the two stack as one
+   block. Positioned by the rule near `.auth-page` above. */
+.auth-footer {
+  /* Above the backdrop, like the card. */
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: .85rem;
+  padding-inline: 1rem;
+}
+
+.auth-footer-note {
+  margin: 0;
+  /* Capped to the card's width so the sentence wraps in step with it rather
+     than stretching across a desktop viewport, and `pretty` keeps a single
+     word off the last line. */
+  max-width: 420px;
+  color: var(--ink-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
+  /* A short shadow so the line stays readable over the backdrop. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+}
+
+/**
+ * Powered by planout.io.
+ *
+ * Ported from the public site's `.planout-credit` so both products attribute
+ * PlanOut the same way, same lockup asset, same uppercase label, same
+ * understated weight.
+ *
+ * The lockup's wordmark is ~59% of the asset's height and the
+ * PEOPLE | PLACES | PARTNERSHIPS tagline another ~13.5%. At 24px the wordmark
+ * lands around 14px, which is where "planout.io" actually reads; the tagline
+ * is decoration at this size rather than text. Making it legible would need
+ * roughly double the height, which is a banner and not a credit.
+ */
+.planout-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: .48rem;
+  color: var(--ink-dim);
+  font-size: clamp(.6rem, .85vw, .68rem);
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+  opacity: .8;
+  transition: opacity var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.planout-credit img {
+  display: block;
+  width: auto;
+  height: clamp(20px, 2vw, 24px);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .75));
+}
+.planout-credit:hover,
+.planout-credit:focus-visible {
+  opacity: 1;
+  color: var(--ink-muted);
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Judge home, segment list                                                  */
+/* ------------------------------------------------------------------------- */
+
+.page-head { margin-bottom: 1.75rem; }
+.page-head h1 { margin: .35rem 0 .5rem; font-size: clamp(1.5rem, 4vw, 2rem); }
+
+.program-strip {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+  padding: .85rem 1rem;
+  border-radius: var(--radius-sm);
+  --frost-tint: 1.6;
+  /* The program accent stripe. Declared AFTER `.frosted` sets its ring, and
+     with the same specificity, so source order decides, this rule lives
+     later in the file, so the stripe wins on this edge only. */
+  border-left: 3px solid var(--program);
+}
+.program-strip img { width: 40px; height: 40px; object-fit: contain; }
+.program-strip strong { display: block; font-size: 1rem; }
+.program-strip span { color: var(--ink-dim); font-size: .8rem; }
+
+.segment-list { display: grid; gap: .85rem; }
+
+.segment-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  /* A grid item defaults to `min-width: auto` and will not shrink below its
+     content, so at 320px these cards pushed 7px past the viewport and the
+     whole page scrolled sideways. Same cause as `.score-row`. */
+  min-width: 0;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+/* Hover lifts the tint rather than swapping to a flat colour, so the glass
+   stays glass, a solid `--surface-2` on hover killed the blur underneath. */
+.segment-card:hover:not(:disabled) {
+  --frost-tint: 1.9;
+  border-color: color-mix(in oklch, var(--ink) 22%, transparent);
+}
+.segment-card:disabled { cursor: not-allowed; opacity: .6; }
+
+.segment-card__order {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-muted);
+  font-size: .85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.segment-card__body { flex: 1; min-width: 0; }
+/* Long segment names ("Philippine Terno (White & Silver)") wrap inside the
+   card rather than widening it. */
+.segment-card__body strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.segment-card__body span { color: var(--ink-dim); font-size: .8rem; overflow-wrap: anywhere; }
+/* The status label is a direct flex child of the card now, `__meta` and the
+   caret it used to pair with are both gone. `flex-shrink: 0` keeps the label
+   from being squeezed by a long segment name. */
+.segment-card .badge { flex-shrink: 0; }
+
+/* No container. This is a message, not a card, a dashed box around it drew a
+   frame with nothing in it but text, and read as a placeholder waiting to be
+   filled rather than an explanation. The type carries it on its own.
+ *
+ * `border: none !important` because `.frosted` (used alongside this class on
+ * the judge screens) sets its own ring. */
+.empty-state {
+  padding: 2.5rem 1.5rem;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--ink-muted);
+  text-align: center;
+}
+.empty-state strong { display: block; margin-bottom: .4rem; color: var(--ink); font-size: 1.05rem; }
+
+/* ------------------------------------------------------------------------- */
+/* Score sheet                                                                */
+/* ------------------------------------------------------------------------- */
+
+/* Sticks *below* the app header. `--header-h` is measured and published by
+   Shell at runtime, because the header's height changes with the signed-in
+   name and the viewport, a hardcoded offset left the sheet title tucked
+   underneath it on a phone. The fallback keeps it sane before first measure. */
+.sheet-head {
+  position: sticky;
+  top: var(--header-h, 60px);
+  z-index: 10;
+  /* Flush with `.score-row` and `.notice` below it.
+   *
+   * Was `margin: -0.5rem -0.5rem 1.25rem`, which pulled the card 8px OUTSIDE
+   * the content column on both sides, the sticky title visibly jutted left of
+   * every candidate card under it. The negative inline margin bought a little
+   * width and cost the page its left edge, which is the one alignment a judge
+   * scanning a column of cards actually notices. */
+  margin: 0 0 var(--sheet-gap);
+  padding: .85rem 1rem;
+  border-radius: var(--radius-md);
+  --frost-tint: 2.1;
+}
+.sheet-head__row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.sheet-head h1 { flex: 1; min-width: 0; font-size: 1.15rem; }
+.sheet-progress {
+  color: var(--ink-muted);
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sheet-progress b { color: var(--program); }
+
+
+.score-rows { display: grid; gap: .85rem; }
+
+.score-row {
+  /* `min-width: 0` overrides a grid item's default `min-width: auto`, which
+     refuses to shrink below its content and let the widest criterion row push
+     the card, and with it the whole page, past the viewport. Without this
+     the sheet scrolled sideways on every phone. */
+  min-width: 0;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  /* Heavier than the sign-in card: a judge reads and types numbers on these
+     under stage lights, so the sheet is a working surface, not an opening
+     composition. */
+  --frost-tint: 2.1;
+}
+/**
+ * A scored row. The green is a status cue, NOT a highlight.
+ *
+ * This was `--mint 32%`, which measured 2.38:1 against the card face while the
+ * plain frosted ring measures 1.19:1, so a completed sheet (the normal state
+ * a judge looks at) became a page of bright green outlines, twice as loud as
+ * the segment cards on the previous screen.
+ *
+ * 8% matches the plain ring's contrast exactly, so a done row reads as the
+ * same weight of edge as every other card in the app and the mint only shifts
+ * its hue. `--frost-tint` is what marks completion more legibly anyway.
+ */
+.score-row--done { border-color: color-mix(in oklch, var(--mint) 8%, transparent); }
+
+.score-row__head { display: flex; align-items: center; gap: .85rem; margin-bottom: .85rem; }
+/**
+ * The candidate avatar: a round portrait in a gold ring.
+ *
+ * Was a flat gold disc with the entry number knocked out of it. The ring is
+ * drawn with `box-shadow` rather than `border`, so it sits OUTSIDE the 42px
+ * box, a border would eat into it and leave the photo 38px, and the discs
+ * would no longer line up with the text baseline beside them.
+ *
+ * Two shadows: a hairline gap in the card's own surface, then the gold. That
+ * gap is what makes the ring read as a ring rather than as a gold edge on the
+ * photo, which matters most when a portrait's border happens to be light.
+ */
+.score-row__avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  overflow: hidden;
+  /* Sits under a photo with transparency. `.is-empty` overrides it for
+     entries that have no photograph at all. */
+  background: color-mix(in oklch, var(--program) 20%, var(--surface-2));
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent);
+}
+
+/* `cover` on a square box: portraits arrive in whatever crop the programme
+   supplies, and a letterboxed face in a circle looks like a mistake. */
+.score-row__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Faces sit high in a typical headshot, so bias the crop upward rather than
+     centring it and cutting the forehead. */
+  object-position: 50% 22%;
+  display: block;
+}
+
+/**
+ * A photoless entry, booths and contingents, which have no portraiture.
+ *
+ * The circle used to carry the entry number; that moved out to the gold index
+ * at the head of the row, so this is now an intentionally empty disc. Quieter
+ * than a portrait's ring so a column of blanks does not read as a column of
+ * errors: the tint drops out and the ring thins to a hairline, leaving a
+ * placeholder that is clearly a placeholder.
+ */
+.score-row__avatar.is-empty {
+  background: var(--surface-2);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent);
+}
+.score-row__who { flex: 1; min-width: 0; }
+/* A long entry name ("Sugar & Dolphins Pavilion") must wrap inside the card
+   rather than widen it. `overflow-wrap` catches the single-long-word case an
+   ordinary wrap would still overflow on. */
+.score-row__who strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/**
+ * The entry number, gold, large, in its own column beside the avatar.
+ *
+ * This is the row's index. On the night a candidate is called by number, not
+ * by name, so the digit is what a judge matches against the stage and it is
+ * sized to be read at a glance from a seated distance in low light.
+ *
+ * A fixed `min-width` rather than intrinsic sizing, so 7 and 14 occupy the
+ * same column and the names beside them stay on one left edge down the whole
+ * sheet. `tabular-nums` does the same job within the digits themselves.
+ *
+ * No `No.` prefix at this size: the number is unmistakable on its own, and the
+ * label only stole width from it. Screen readers still hear "No. 7, <name>"
+ * from the `.sr-only` string in the markup.
+ */
+.score-row__num {
+  flex-shrink: 0;
+  min-width: 1.6ch;
+  color: var(--program);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -.02em;
+  text-align: center;
+}
+.score-row__who span { color: var(--ink-dim); font-size: .82rem; overflow-wrap: anywhere; }
+
+.score-row__total {
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.score-row__total b { display: block; color: var(--program); font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+.score-row__total span { color: var(--ink-dim); font-size: .72rem; }
+
+/* Criterion inputs. A grid so 1 criterion and 4 criteria both look deliberate.
+ *
+ * `auto-fill` rather than `auto-fit`: auto-fit collapses empty tracks and
+ * stretches a lone column across the whole row, which turned Hara's single
+ * 1-10 score into a 1500px-wide box on a desktop. auto-fill keeps the track
+ * width, so one input stays the size of one input.
+ *
+ * `min(150px, 100%)` rather than a bare 150px: a fixed minimum cannot shrink,
+ * so at 320px the track overflowed the card and the whole page scrolled
+ * sideways. The min() lets the track collapse to the available width on a
+ * narrow phone while still tiling at 150px wherever there is room.
+ *
+ * max-width caps the row on a wide monitor so a criterion cell never becomes
+ * a landing strip and the number stays near its label.
+ */
+.criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: .75rem;
+  max-width: 720px;
+}
+
+.criterion { display: grid; gap: .35rem; }
+
+/**
+ * The field box — the input plus its steppers, and nothing else.
+ *
+ * This exists so the steppers can be centred on the INPUT rather than measured
+ * down from the top of the criterion. The previous rule positioned them with
+ * `top: calc(.78rem * 1.25 + .35rem + 28px)`, i.e. one label line + the gap +
+ * half the input — which silently assumed every label fits on one line. On the
+ * festival sheet, where labels like "Choreography & Synchronicity / 35" wrap
+ * to two, the input sits ~15.6px lower than that formula predicts and the
+ * arrows floated above the field entirely, once per extra line.
+ *
+ * `display: grid` so the box is exactly the input's height, and `relative` so
+ * `.criterion__step` resolves against it. No magic numbers: the steppers now
+ * centre on whatever the field actually is, at any label length, font size or
+ * field height.
+ */
+.criterion__field {
+  position: relative;
+  display: grid;
+}
+.criterion label { color: var(--ink-muted); font-size: .78rem; font-weight: 600; line-height: 1.25; }
+.criterion label span { color: var(--ink-dim); font-weight: 400; }
+
+/* The number input. Deliberately large: this is the one control that must not
+   be mis-tapped, and `inputMode="decimal"` brings up a numeric keypad without
+   the spinner arrows a phone keyboard would fight. */
+.criterion input {
+  width: 100%;
+  min-height: 56px;
+  padding: .5rem .75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--ground);
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  /* Firefox/Chrome spinners waste half the tap target. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/**
+ * Kill WebKit's native spinners.
+ *
+ * This selector used to read
+ * `input::-webkit-outer-spin-button.criterion input::-webkit-inner-spin-button`
+ * — a `.` where the comma belongs, which made it one impossible compound
+ * selector instead of two. It matched nothing, so Safari and Chrome kept
+ * drawing their grey steppers on every score field while `appearance:
+ * textfield` above quietly failed to suppress them on its own.
+ */
+.criterion input::-webkit-outer-spin-button,
+.criterion input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* Same reason as the auth fields: the global outline is the only focus ring,
+   so this must not repaint the border into a second one. The `aria-invalid`
+   rule below still recolours the border, which is a *state*, not focus. */
+.criterion input:focus-visible { background: color-mix(in oklch, var(--ground) 88%, white); }
+.criterion input[aria-invalid="true"] { border-color: var(--rose); }
+.criterion input:disabled { opacity: .6; cursor: not-allowed; }
+
+/**
+ * Brand steppers, in place of the native spinners.
+ *
+ * Absolutely positioned inside the field's own box, so they cost the input no
+ * width — the score itself is 1.35rem tabular and needs the middle of the
+ * field to stay clear.
+ *
+ * `.criterion` carries `position: relative` for this.
+ *
+ * Offset from the FIELD, not the criterion box: the label sits above the input
+ * and the error below it, so centring on the criterion would drift the arrows
+ * off the input whenever either is present. `top` is therefore measured
+ * against the input's own 56px height, from its top edge.
+ */
+/* 38px tall now (18 + 2 gap + 18) inside a 56px field, so it still clears the
+   input's rounded corners with room either side. */
+.criterion__step {
+  position: absolute;
+  /* Centred on the field by geometry, not arithmetic — `.criterion__field`
+     wraps the input alone, so 50% of it IS the middle of the input. */
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 2px;
+  /* The field owns the tap target for typing; these sit on top of its right
+     edge without stealing the centre. */
+  z-index: 1;
+}
+
+/* Square, 18x18. Was 18x14: the squat rectangles read as clipped rather than
+   as buttons, and a 1:1 box matches the caret glyph inside it. Still a nudge
+   for a thumb, not the primary way to enter a score — a judge types the
+   number — so it stays small enough never to compete with the digits. */
+.criterion__step-btn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid color-mix(in oklch, var(--program) 26%, transparent);
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--program) 10%, var(--surface-2));
+  color: color-mix(in oklch, var(--program) 85%, white);
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+.criterion__step-btn:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--program) 55%, transparent);
+  background: color-mix(in oklch, var(--program) 22%, var(--surface-2));
+}
+
+.criterion__step-btn:active:not(:disabled) {
+  background: color-mix(in oklch, var(--program) 34%, var(--surface-2));
+}
+
+/* At the range's ends: dimmed rather than hidden, so the pair does not reflow
+   and the remaining direction stays where the thumb already is. */
+.criterion__step-btn:disabled { opacity: .28; cursor: default; }
+
+/* Room for the steppers so a three-character score ("10.5") cannot slide
+   under them. The field stays centre-aligned; this is symmetric padding, not
+   a right inset, so the digits remain visually centred. */
+.criterion input { padding-inline: 28px; }
+
+.criterion__error { color: var(--rose); font-size: .74rem; }
+
+/* Submit bar, pinned to the bottom so Submit is always reachable without
+   scrolling to the end of 23 rows. */
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  background: var(--ground);
+  box-shadow: var(--shadow-lift);
+}
+.submit-bar__status { flex: 1; min-width: 0; color: var(--ink-muted); font-size: .85rem; }
+.submit-bar__status b { color: var(--ink); }
+
+.autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  color: var(--mint);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Review dialog                                                              */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Page scroll is locked while a dialog is open.
+ *
+ * `overscroll-behavior` alone was not enough: it stops a scroll *chaining out*
+ * of the list once it hits the end, but a wheel gesture over the scrim — or
+ * over the dialog's non-scrolling parts, like the heading or the buttons —
+ * never belonged to the list in the first place and went straight to the page.
+ * The result was the thing that looked broken: scrolling with the dialog open
+ * moved the sheet behind it instead of the list inside it.
+ *
+ * `position: fixed` rather than `overflow: hidden` on `<body>`, because
+ * `overflow: hidden` does not reliably stop scroll on iOS Safari. The scroll
+ * offset is preserved in JS and restored on close (see `ReviewDialog`), so the
+ * judge comes back to the same candidate they were looking at.
+ */
+body.is-dialog-open {
+  position: fixed;
+  width: 100%;
+  overflow: hidden;
+  /* Belt and braces for the jitter.
+   *
+   * `scrollbar-gutter: stable` on `html` is the real fix, but it is unsupported
+   * in Safari before 18.2. There, removing the scrollbar still widens the
+   * viewport, so pad the body by exactly the width that disappeared. The
+   * variable is measured in JS when the lock is applied (see `ReviewDialog`)
+   * and is 0 wherever scrollbars are overlays. */
+  padding-right: var(--scrollbar-w, 0px);
+}
+
+/* Where the gutter IS supported, the space is already reserved and padding
+   would double-count it. */
+@supports (scrollbar-gutter: stable) {
+  body.is-dialog-open { padding-right: 0; }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  /* Lighter than the .72 black it was, and blurred.
+   *
+   * The dialog is frosted now, and frosted glass needs something with
+   * structure behind it, over a near-opaque black scrim the blur has nothing
+   * to work with and the card just looks flat grey. Dimming less and blurring
+   * the scrim instead keeps the sheet readable as context behind the dialog
+   * while still pushing it back. */
+  background: rgba(0, 0, 0, .55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  /* The scrim covers the viewport, so a wheel gesture that starts on it would
+     otherwise scroll the sheet underneath. */
+  overscroll-behavior: contain;
+}
+.modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.5rem;
+  /* The frosted surface comes from `.frosted` in the markup; only geometry
+     and the heavier tint are set here. Heavier because this dialog is the last
+     checkpoint before a judge submits a sheet, the totals in it have to be
+     unambiguous, not atmospheric. */
+  --frost-tint: 2.4;
+  border-radius: var(--radius-lg);
+}
+.modal h2 { margin-bottom: .5rem; font-size: 1.25rem; }
+.modal .lede { margin-bottom: 1.25rem; font-size: .9rem; }
+.modal__actions { display: flex; gap: .75rem; margin-top: 1.5rem; }
+.modal__actions .button { flex: 1; }
+
+/**
+ * Scrollbars — the same restrained bar the dev panel uses.
+ *
+ * Deliberately `--ink`, not gold. A gold thumb read as the brightest object in
+ * the review dialog, competing with the scores beside it; a scrollbar is
+ * chrome and belongs behind the content. These values match `.devbar__panel`
+ * so there is one scrollbar treatment in the app.
+ *
+ * Both syntaxes on purpose: `scrollbar-color` is the standard and covers
+ * Firefox, the `::-webkit-scrollbar-*` rules cover Chrome and Safari, and
+ * neither alone reaches all three.
+ *
+ * NOTE the commas. These were written as a comma-separated selector list and
+ * had been corrupted into `.modal.review-list.shell-main` — one element
+ * carrying all three classes, which matches nothing, so none of this applied.
+ */
+.modal,
+.review-list,
+.shell-main {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--ink) 28%, transparent) transparent;
+}
+.modal::-webkit-scrollbar,
+.review-list::-webkit-scrollbar,
+.shell-main::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.modal::-webkit-scrollbar-track,
+.review-list::-webkit-scrollbar-track,
+.shell-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal::-webkit-scrollbar-thumb,
+.review-list::-webkit-scrollbar-thumb,
+.shell-main::-webkit-scrollbar-thumb {
+  /* A transparent border plus `content-box` clipping insets the thumb from the
+     gutter so it reads as a floating pill — a thumb takes no `margin`. */
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 26%, transparent);
+  background-clip: content-box;
+}
+.modal::-webkit-scrollbar-thumb:hover,
+.review-list::-webkit-scrollbar-thumb:hover,
+.shell-main::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--ink) 42%, transparent);
+  background-clip: content-box;
+}
+
+.review-list {
+  display: grid;
+  gap: .4rem;
+  margin-bottom: 1rem;
+  max-height: 40dvh;
+  overflow-y: auto;
+  /* Stop the scroll chaining out of the list: reaching the last candidate
+     should stop, not hand the gesture to the page behind the dialog. */
+  overscroll-behavior: contain;
+}
+.review-row {
+  display: flex;
+  align-items: baseline;
+  gap: .6rem;
+  padding: .4rem .6rem;
+  border-radius: var(--radius-sm);
+  /* Translucent, not the opaque `--ground` this used: a solid row inside a
+     frosted dialog punches a flat rectangle through the glass. Darker than the
+     dialog face so the rows still read as recessed bands. */
+  background: color-mix(in oklch, var(--ground) 55%, transparent);
+  font-size: .85rem;
+}
+/**
+ * Sheet-submitted confirmation, see `justSubmitted` in JudgeSegment.tsx.
+ *
+ * A full-width card rather than a toast: submitting a sheet is the one
+ * irreversible-feeling act in a judge's night (it is reversible until the
+ * segment closes, which the note says), and a message that vanishes on its own
+ * leaves them unsure whether it went through.
+ */
+.submitted-state {
+  display: grid;
+  justify-items: center;
+  gap: .6rem;
+  max-width: 460px;
+  margin: 2rem auto;
+  padding: 2.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  --frost-tint: 2.1;
+}
+
+/* The tick. Mint rather than the program accent: this is a system
+   confirmation, not a scoring value, and mint is what the app already uses
+   for "saved" and "submitted" elsewhere. */
+.submitted-state__mark {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: .35rem;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--mint) 16%, transparent);
+  color: var(--mint);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--mint) 32%, transparent);
+}
+
+.submitted-state h1 { font-size: 1.35rem; }
+.submitted-state .lede { font-size: .92rem; text-wrap: pretty; }
+.submitted-state__note {
+  color: var(--ink-dim);
+  font-size: .8rem;
+  text-wrap: pretty;
+}
+.submitted-state__actions {
+  display: grid;
+  gap: .6rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* The denominator beside a reviewed score. Quieter than the score itself,
+   the number being checked is the one the judge entered. */
+.review-row__max { color: var(--ink-dim); font-weight: 400; }
+
+.review-row__num { color: var(--ink-dim); font-variant-numeric: tabular-nums; min-width: 1.75rem; }
+.review-row__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-row__score { color: var(--program); font-weight: 700; font-variant-numeric: tabular-nums; }
+.review-row--missing .review-row__score { color: var(--rose); }
+
+/* ------------------------------------------------------------------------- */
+/* Rehearsal bar, dev build only (see DevBar.tsx)                            */
+/* ------------------------------------------------------------------------- */
+
+/* Bottom-LEFT, not bottom-right or full-width: the sticky submit bar owns the
+   bottom of the sheet, and covering a judge's Submit button with a debug
+   control would be the exact failure this app is built to avoid. */
+/* Positioned from the top-left in JS, so no `bottom`/`right` here, the
+   component owns `left`/`top` and the panel flips side via the modifier
+   classes below. */
+.devbar {
+  position: fixed;
+  z-index: 50;
+  font-size: .78rem;
+}
+
+/* The draggable circle. `touch-action: none` is what makes a drag work on a
+   phone at all, without it the browser claims the gesture for scrolling and
+   pointermove never fires. */
+.devbar__handle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px; height: 46px;
+  padding: 0;
+  border: 1px dashed color-mix(in oklch, var(--ink) 30%, transparent);
+  border-radius: 50%;
+  background: var(--ground);
+  color: var(--ink-dim);
+  box-shadow: var(--shadow-lift);
+  cursor: grab;
+  touch-action: none;
+  opacity: .82;
+  transition: opacity var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.devbar__handle:active { cursor: grabbing; }
+.devbar__handle:hover { opacity: 1; color: var(--ink); }
+
+/* Open-segment count, as a small badge on the handle. */
+.devbar__count {
+  position: absolute;
+  top: -2px; right: -2px;
+  min-width: 18px;
+  padding: 0 .25rem;
+  border-radius: 999px;
+  background: var(--mint);
+  color: oklch(0.2 0.04 160);
+  font-size: .64rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+/* The panel hangs off the handle, flipping to whichever side has room so it
+   never opens off screen. */
+.devbar__panel {
+  position: absolute;
+  width: min(300px, calc(100vw - 2rem));
+  /* Capped, and it scrolls inside itself.
+   *
+   * The accounts tab lists every seat on every programme, so with no cap the
+   * panel grew past the viewport and bled off both ends: the top was cut off
+   * when it opened upward, and the buttons at the bottom were unreachable when
+   * it opened downward. `70dvh` leaves the page visible behind it, which
+   * matters because this is a tool for checking the page.
+   *
+   * `dvh` not `vh`, so a phone's collapsing address bar does not leave the
+   * panel taller than the visible viewport. */
+  max-height: 70dvh;
+  overflow-y: auto;
+  /* Contain the scroll chaining: reaching the end of the list should stop,
+     not start scrolling the page underneath. */
+  overscroll-behavior: contain;
+  padding: .85rem;
+  border: 1px dashed color-mix(in oklch, var(--ink) 26%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  /* A visible, restrained scrollbar. The default overlay bar on macOS fades
+     out and gives no hint the panel scrolls at all. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--ink) 28%, transparent) transparent;
+}
+
+/* WebKit needs its own selectors; `scrollbar-width` alone is a no-op there. */
+.devbar__panel::-webkit-scrollbar { width: 8px; }
+.devbar__panel::-webkit-scrollbar-track { background: transparent; }
+.devbar__panel::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 26%, transparent);
+  background-clip: content-box;
+}
+.devbar__panel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--ink) 42%, transparent);
+  background-clip: content-box;
+}
+.devbar.is-right .devbar__panel { left: calc(46px + .5rem); }
+.devbar.is-left  .devbar__panel { right: calc(46px + .5rem); }
+.devbar.is-down  .devbar__panel { top: 0; }
+.devbar.is-up    .devbar__panel { bottom: 0; }
+
+.devbar__note { margin-bottom: .75rem; color: var(--ink-dim); font-size: .72rem; line-height: 1.4; }
+.devbar__note code { font-size: .95em; }
+
+/* Tabs, Segments / Accounts. */
+.devbar__tabs {
+  display: flex;
+  gap: .25rem;
+  margin-bottom: .75rem;
+  padding: .2rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--ground) 70%, black);
+}
+.devbar__tab {
+  flex: 1;
+  padding: .35rem .5rem;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.devbar__tab[aria-selected='true'] {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Which account is live right now. */
+.devbar__who {
+  margin-bottom: .6rem;
+  color: var(--ink-dim);
+  font-size: .72rem;
+}
+.devbar__who b { color: var(--ink); }
+
+.devbar__group { margin-bottom: .6rem; }
+.devbar__group-label {
+  display: block;
+  margin-bottom: .25rem;
+  color: var(--ink-dim);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/**
+ * One switchable account.
+ *
+ * A three-column row, name, credentials, role, rather than a plain list,
+ * because a dry run needs all three: who this is, what to type into the real
+ * form if you are testing the form itself, and which role's view you are
+ * about to land in.
+ */
+.devbar__account {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .1rem .5rem;
+  width: 100%;
+  margin-bottom: .2rem;
+  padding: .35rem .5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--ground) 80%, black);
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: .74rem;
+  text-align: left;
+  cursor: pointer;
+}
+.devbar__account:hover { border-color: var(--line-soft); color: var(--ink); }
+/* The account already signed in. Gold, matching the app's accent, so the
+   current seat is findable in a list of twenty. */
+.devbar__account[aria-current='true'] {
+  border-color: color-mix(in oklch, var(--frame-mid) 45%, transparent);
+  color: var(--ink);
+}
+.devbar__account-name { font-weight: 600; }
+.devbar__account-name em {
+  margin-left: .35rem;
+  color: var(--ink-dim);
+  font-size: .92em;
+  font-style: normal;
+  font-weight: 400;
+}
+.devbar__account-creds {
+  grid-column: 1;
+  color: var(--ink-dim);
+  font-size: .92em;
+  font-variant-numeric: tabular-nums;
+}
+.devbar__account-role {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--ink-dim);
+  font-size: .92em;
+}
+
+.devbar__actions { display: grid; gap: .4rem; }
+/* Smaller than a judge-facing control: this is not a 48px tap target and it
+   should not read as one. */
+.devbar__actions .button { min-height: 36px; padding: .4rem .7rem; font-size: .8rem; }
+
+.devbar__list {
+  margin: .75rem 0 0;
+  padding: .75rem 0 0;
+  border-top: 1px solid var(--line-soft);
+  list-style: none;
+}
+.devbar__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .12rem 0;
+  color: var(--ink-dim);
+  font-size: .74rem;
+}
+.devbar__list b { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.devbar__list b.is-open { color: var(--mint); }
+
+/* ------------------------------------------------------------------------- */
+/* Motion                                                                     */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Entrance for a screen's content.
+ *
+ * One shared keyframe, applied to the score sheet's `<main>` and the sign-in
+ * card, and re-run on navigation by keying the element on the route (see
+ * `Shell.tsx`). Deliberately small: 8px and a fade, no scale, no slide across
+ * the viewport. A judge opens and closes sheets all night, and anything with a
+ * sense of travel becomes tiring by the third segment.
+ *
+ * `translateY` and `opacity` only, both composited, so this costs nothing on
+ * the phones the panel actually runs on and never triggers layout.
+ */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/**
+ * The page body rises in — but WITHOUT `both`.
+ *
+ * `animation-fill-mode: both` holds the final keyframe forever, and that
+ * keyframe sets `transform`. A settled `transform` (even `none` via
+ * animation) makes the element a containing block for `position: fixed`
+ * descendants, which broke two things at once:
+ *
+ *   - The review dialog centred inside `.shell-main` instead of the viewport,
+ *     so on a long sheet it sat far down the document and had to be scrolled
+ *     to rather than appearing over the page.
+ *   - `.shell-main` became its own stacking context and painted its box as a
+ *     visible band over the backdrop's rays and skyline.
+ *
+ * `backwards` gives the same entrance — the from-state applies during the
+ * delay, so there is no flash of un-animated content — and releases the
+ * transform when the animation ends, leaving no containing block behind.
+ */
+.shell-main {
+  animation: rise-in var(--dur-page) var(--ease-out) backwards;
+}
+
+/**
+ * The candidate cards and segment rows arrive in a short stagger.
+ *
+ * `--i` is set per row in the markup. The cap matters: with 26 candidates a
+ * per-row delay would still be animating a second in, so the stagger stops
+ * contributing after the tenth row and everything below simply arrives with
+ * it. The point is a sense of the list assembling, not a queue to sit through.
+ */
+.score-rows > *,
+.segment-list > * {
+  /* `backwards` holds the from-state through the stagger delay — which is the
+     part that matters here — without leaving a transform on the row
+     afterwards. These rows contain the score inputs, and a settled transform
+     on an input's ancestor is what makes a focused field's scroll-into-view
+     land in the wrong place. */
+  animation: rise-in var(--dur-page) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--i, 0), 10) * 26ms);
+}
+
+/* The sticky sheet header leads, so the title is settled before the rows
+   under it finish arriving.
+
+   `backwards`, not `both`, for the same reason as `.shell-main`: this element
+   is `position: sticky`, and a transform left applied by the final keyframe
+   would offset it from its sticky position for the rest of the session. */
+.sheet-head { animation: rise-in var(--dur-page) var(--ease-out) backwards; }
+
+/* Sign-in: the card rises, the decorative layers stay put, the backdrop is
+   already animating on its own and the footer is furniture. */
+/* `backwards` throughout, for consistency with the rules above — this card has
+   no fixed or sticky descendants today, but leaving a transform settled on a
+   card is the kind of thing that quietly breaks the next dialog put inside
+   it. */
+.auth-card { animation: rise-in calc(var(--dur-page) * 1.3) var(--ease-out) backwards; }
+
+/* ------------------------------------------------------------------------- */
+/* Motion preferences                                                         */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Honour the OS setting.
+ *
+ * The blanket rule below collapses every duration rather than removing the
+ * animations, so `both`-filled keyframes still apply their end state, an
+ * element that animates in from `opacity: 0` must not be left invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+  /* Kill the stagger too: 26 rows x 26ms is motion the setting asked not to
+     see, even at a collapsed duration. */
+  .score-rows > *,
+  .segment-list > * { animation-delay: 0ms !important; }
+}
