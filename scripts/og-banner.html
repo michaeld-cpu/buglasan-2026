@@ -16,6 +16,14 @@
       WHAT IS REUSED FROM THE REAL SITE, so the banner cannot drift from it:
         - The rainbow wordmark and the PlanOut lockup, the same asset files
           the app serves out of `public/assets`.
+
+          NOTE the wordmark is the `-hires` variant, 1600x842. The app's own
+          `buglasan-festival-2026-logo.webp` is 596x324, which is plenty at the
+          52px the panel header draws it — but this banner renders it around
+          720px wide, and at 2x capture that asked for 1440px from a 596px
+          source. The result was visibly soft. The hi-res file is downscaled
+          from the festival's 3198x1681 master, so the mark is sharp at every
+          size this page is captured at.
         - The token ramp (ground, gold, mint) copied verbatim from styles.css.
         - The light-shaft canvas, ported from `AuthBackdrop.tsx` — same 11
           beams, same 0.86π cone, same origin above the top edge, same
@@ -176,7 +184,7 @@
         <img
           alt="Buglasan Festival 2026"
           class="og__mark"
-          src="../public/assets/buglasan-festival-2026-logo.webp"
+          src="../public/assets/buglasan-festival-2026-logo-hires.webp"
         />
 
         <span class="og__credit">
