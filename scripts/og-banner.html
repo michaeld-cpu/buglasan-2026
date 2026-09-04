@@ -93,6 +93,30 @@
         height: 100%;
       }
 
+      /**
+       * A scrim over the shafts, beneath the content.
+       *
+       * The last piece of the contrast fix. The centre falloff dims the beams
+       * and the halo no longer blooms, but the shafts still converge toward
+       * the middle by construction. This lays a soft dark ellipse over exactly
+       * that area — strongest where the wordmark sits, gone by the edges — so
+       * the logo always has a darker ground under it than the frame's corners.
+       *
+       * `z-index: 1` puts it above the canvas and below `.og__content` (2).
+       */
+      .og__scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: radial-gradient(
+          62% 58% at 50% 46%,
+          rgba(0, 0, 0, 0.62) 0%,
+          rgba(0, 0, 0, 0.44) 42%,
+          rgba(0, 0, 0, 0.16) 72%,
+          rgba(0, 0, 0, 0) 100%
+        );
+      }
+
       /* Grounds the shafts so the light reads as coming from above a stage
          rather than floating in the middle of the frame. */
       .og__horizon {
@@ -131,13 +155,23 @@
            looked cramped in one and oversized in the other. */
         width: clamp(420px, 88vmin, 720px);
         height: auto;
-        /* A soft warm halo, matching the glow the WebGL hero throws on the
-           public site. Three shadows at increasing radius: a tight bright
-           core, a mid bloom, then a wide ambient lift. */
+        /* A halo, but a restrained one.
+         *
+         * This was three warm shadows at 0.34/0.22/0.14. Combined with the
+         * light shafts landing in the same place, the area behind the mark
+         * measured ~2.8x the brightness of the frame edges, and the darker
+         * letters in "FESTIVAL 2026" — the violets and blues — lost contrast
+         * against it.
+         *
+         * Now a tight rim only. It still separates the mark from the ground,
+         * which is all it was for; the wide ambient bloom was what filled the
+         * space between the letters with light. A DARK outer shadow does the
+         * lifting instead, so the mark sits ON the background rather than
+         * glowing through it. */
         filter:
-          drop-shadow(0 0 18px rgba(255, 214, 120, 0.34))
-          drop-shadow(0 0 60px rgba(255, 190, 80, 0.22))
-          drop-shadow(0 0 140px rgba(255, 170, 60, 0.14));
+          drop-shadow(0 0 10px rgba(255, 214, 120, 0.20))
+          drop-shadow(0 0 34px rgba(0, 0, 0, 0.55))
+          drop-shadow(0 2px 18px rgba(0, 0, 0, 0.45));
       }
 
       /* "POWERED BY  planout.io" — the same lockup and treatment as the
@@ -178,6 +212,7 @@
   <body>
     <div class="og" id="og">
       <canvas class="og__canvas" id="fx" width="2400" height="1260"></canvas>
+      <div class="og__scrim"></div>
       <div class="og__horizon"></div>
 
       <div class="og__content">
@@ -261,6 +296,24 @@
           let s = Math.sin(a * 9.0) * 0.5 + 0.5;
           s *= Math.sin(a * 5.0) * 0.5 + 0.5;
           s = 0.3 + 0.7 * Math.pow(s, 1.5);
+
+          /* Carve the middle out.
+           *
+           * The beams radiate from a point above the centre of the top edge,
+           * so the straightest ones fire directly down through the middle of
+           * the frame — which is exactly where the wordmark sits. Measured on
+           * the previous render, the centre column was 2.8x brighter than the
+           * edges across the "FESTIVAL 2026" row, and the darker letters in it
+           * washed out against that.
+           *
+           * `keep` fades a beam by how vertical it is: 1 at the cone's edges,
+           * down to KEEP_MIN for the beam pointing straight down. The stage
+           * light stays where it reads as atmosphere and gets out of the way
+           * where it competes with the logo. */
+          const KEEP_MIN = 0.05;
+          const vertical = Math.abs(Math.cos(a)); // 0 straight down, →1 at the edges
+          const keep = KEEP_MIN + (1 - KEEP_MIN) * Math.pow(vertical, 0.85);
+          s *= keep;
 
           // A fixed per-beam offset, so the fan is irregular rather than even.
           const jitter = (hash12(i * 3.1, 7.0) - 0.5) * 0.16;
