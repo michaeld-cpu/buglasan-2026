@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Buglasan Festival 2026 — banner / OG image</title>
+
+    <!--
+      A standalone page whose only job is to be screenshotted for a banner or
+      Open Graph image.
+
+      Not part of the app. It lives in `scripts/` and is never imported, routed
+      to, or built — open it directly in a browser and capture it. Keeping it
+      out of `src/` is deliberate: nothing here should ship to a judge, and
+      nothing in the app should be able to import it by accident.
+
+      WHAT IS REUSED FROM THE REAL SITE, so the banner cannot drift from it:
+        - The rainbow wordmark and the PlanOut lockup, the same asset files
+          the app serves out of `public/assets`.
+        - The token ramp (ground, gold, mint) copied verbatim from styles.css.
+        - The light-shaft canvas, ported from `AuthBackdrop.tsx` — same 11
+          beams, same 0.86π cone, same origin above the top edge, same
+          `sin(9a) * sin(5a)` angular fan.
+
+      WHAT IS DELIBERATELY LEFT OUT, per the brief: the contest cards, the
+      "To vote, choose a contest." line, and the HOME / HOW TO VOTE nav links.
+      The content is centred in the frame instead of sitting under a navbar.
+
+      SIZE: 1200x630, the Open Graph standard. Facebook, LinkedIn, Slack and
+      X all crop toward the centre of that box, which is another reason the
+      composition is centred rather than top-weighted.
+    -->
+
+    <style>
+      /* ---------------------------------------------------------------- */
+      /* Tokens — copied from src/styles.css so the banner and the app     */
+      /* resolve the same colours.                                         */
+      /* ---------------------------------------------------------------- */
+      :root {
+        --ground: oklch(0.158 0.021 158);
+        --gold: oklch(0.806 0.148 79);
+        --gold-bright: oklch(0.905 0.126 92);
+        --gold-deep: oklch(0.648 0.132 66);
+        --mint: oklch(0.858 0.183 148);
+        --ink: oklch(0.97 0.014 95);
+        --ink-muted: oklch(0.822 0.021 148);
+        --ink-dim: oklch(0.672 0.024 150);
+        --font-sans: "Archivo", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+
+      /* The capture target.
+       *
+       * Sized to the VIEWPORT, not a fixed 1200x630. It was fixed at first,
+       * on the reasoning that a constant box gives a constant output — but the
+       * capture script also renders a 1600x500 banner, and a fixed box left
+       * white margin on the right and clipped the tagline off the bottom. The
+       * window is what defines the frame now, so `--window-size` alone decides
+       * the crop and every size composes correctly.
+       *
+       * `100vw/100vh` is exact in headless Chrome, where there is no scrollbar
+       * and no chrome to subtract. */
+      .og {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        font-family: var(--font-sans);
+        color: var(--ink);
+        /* Same three-layer atmosphere as `.auth-backdrop`: a mint bloom top
+           right, a gold bloom bottom left, over a dark green-black ramp. */
+        background:
+          radial-gradient(60rem 40rem at 78% -6%, color-mix(in oklch, var(--mint) 8%, transparent), transparent 70%),
+          radial-gradient(52rem 44rem at -8% 62%, color-mix(in oklch, var(--gold-deep) 7%, transparent), transparent 70%),
+          linear-gradient(168deg, oklch(0.148 0.022 158) 0%, oklch(0.118 0.017 156) 54%, oklch(0.092 0.013 158) 100%);
+      }
+
+      /* The light shafts and the star field, both drawn in JS below. */
+      .og__canvas {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Grounds the shafts so the light reads as coming from above a stage
+         rather than floating in the middle of the frame. */
+      .og__horizon {
+        position: absolute;
+        inset: auto 0 0;
+        height: 42%;
+        background: linear-gradient(
+          to top,
+          color-mix(in oklch, var(--ground) 92%, black) 0%,
+          color-mix(in oklch, var(--ground) 45%, transparent) 55%,
+          transparent 100%
+        );
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Content — centred, both axes                                      */
+      /* ---------------------------------------------------------------- */
+      .og__content {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        justify-items: center;
+        align-content: center;
+        gap: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0 96px;
+        text-align: center;
+      }
+
+      /* The wordmark. Sized by width so it dominates the frame the way it
+         does on the site, and capped so the tagline below always has room. */
+      .og__mark {
+        /* Scales with the frame, clamped: `vmin` keeps the mark proportionate
+           in both the 1.9:1 OG box and the 3.2:1 banner, where a fixed width
+           looked cramped in one and oversized in the other. */
+        width: clamp(420px, 88vmin, 720px);
+        height: auto;
+        /* A soft warm halo, matching the glow the WebGL hero throws on the
+           public site. Three shadows at increasing radius: a tight bright
+           core, a mid bloom, then a wide ambient lift. */
+        filter:
+          drop-shadow(0 0 18px rgba(255, 214, 120, 0.34))
+          drop-shadow(0 0 60px rgba(255, 190, 80, 0.22))
+          drop-shadow(0 0 140px rgba(255, 170, 60, 0.14));
+      }
+
+      /* "POWERED BY  planout.io" — the same lockup and treatment as the
+         site's hero credit. */
+      .og__credit {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 26px;
+        color: var(--ink-dim);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
+      .og__credit img {
+        display: block;
+        width: auto;
+        height: 30px;
+        filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
+      }
+
+      /* The festival line, reused verbatim from the site. `balance` keeps the
+         two lines close in length rather than leaving one word stranded. */
+      .og__tagline {
+        max-width: 620px;
+        margin: 30px 0 0;
+        color: var(--ink-muted);
+        font-size: 25px;
+        line-height: 1.45;
+        text-wrap: balance;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="og" id="og">
+      <canvas class="og__canvas" id="fx" width="2400" height="1260"></canvas>
+      <div class="og__horizon"></div>
+
+      <div class="og__content">
+        <img
+          alt="Buglasan Festival 2026"
+          class="og__mark"
+          src="../public/assets/buglasan-festival-2026-logo.webp"
+        />
+
+        <span class="og__credit">
+          <span>Powered by</span>
+          <img alt="planout.io" src="../public/assets/sponsors/planout-lockup-horizontal.webp" />
+        </span>
+
+        <p class="og__tagline">
+          Celebrate Buglasan 2026 and the people, places, and traditions of Negros Oriental.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      /*
+       * Light shafts + star field.
+       *
+       * The shaft pass is a direct port of `drawShafts()` in
+       * `src/components/AuthBackdrop.tsx`: eleven beams over a 0.86π cone,
+       * radiating from a point above the top edge, each beam a stack of seven
+       * slices weighted by a sin² bell so it has a bright core falling to
+       * nothing at both edges. A single flat wedge per beam leaves hard
+       * straight boundaries, which is what that slicing avoids.
+       *
+       * Drawn once. There is no animation loop — this page exists to be a
+       * still, and a loop would mean the capture depends on when the shutter
+       * fired.
+       */
+      const canvas = document.getElementById('fx');
+      const ctx = canvas.getContext('2d');
+
+      /* The canvas backing store is 2x the CSS box so the shafts and stars are
+         crisp if the screenshot is taken at device-pixel-ratio 2. */
+      const DPR = 2;
+      const W = 1200;
+      const H = 630;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+      /** `hash12` from the app's noise block — same constants, same output. */
+      function hash12(x, y) {
+        const px = x * 0.1031;
+        const py = y * 0.103;
+        let fx = px - Math.floor(px);
+        let fy = py - Math.floor(py);
+        const pz = fx * 0.0973;
+        const fz = pz - Math.floor(pz);
+        const dot = fx * (fy + 33.33) + fy * (fz + 33.33) + fz * (fx + 33.33);
+        fx += dot;
+        fy += dot;
+        const v = (fx + fy) * fz;
+        return v - Math.floor(v);
+      }
+
+      function drawShafts() {
+        const cx = W * 0.5;
+        // Above the top edge, so light rakes down across the mark.
+        const cy = -H * 0.18;
+        const R = Math.hypot(W, H) * 1.25;
+
+        const BEAMS = 11;
+        const CONE = Math.PI * 0.92;
+        const A0 = Math.PI / 2 - CONE / 2;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        // One blur for the whole layer, set once rather than per beam.
+        ctx.filter = 'blur(22px)';
+
+        for (let i = 0; i < BEAMS; i++) {
+          const f = (i + 0.5) / BEAMS;
+          const a = A0 + f * CONE;
+
+          /* The source's angular fan, with a floor so no beam vanishes. */
+          let s = Math.sin(a * 9.0) * 0.5 + 0.5;
+          s *= Math.sin(a * 5.0) * 0.5 + 0.5;
+          s = 0.3 + 0.7 * Math.pow(s, 1.5);
+
+          // A fixed per-beam offset, so the fan is irregular rather than even.
+          const jitter = (hash12(i * 3.1, 7.0) - 0.5) * 0.16;
+          const halfW = (CONE / BEAMS) * 1.15;
+          const e0 = a - halfW + jitter;
+          const e1 = a + halfW + jitter;
+
+          const SLICES = 7;
+          for (let k = 0; k < SLICES; k++) {
+            const u = (k + 0.5) / SLICES;
+            const bell = Math.pow(Math.sin(u * Math.PI), 1.6);
+            const w = s * bell;
+            if (w < 0.006) continue;
+
+            const sa0 = e0 + (e1 - e0) * (k / SLICES);
+            const sa1 = e0 + (e1 - e0) * ((k + 1) / SLICES);
+
+            /* Warm gold here, where the app's judge-facing version uses a cool
+               blue-white. The public site's stage light is gold, and this is a
+               marketing still rather than a working screen. */
+            const grad = ctx.createLinearGradient(cx, cy, cx, cy + R);
+            grad.addColorStop(0, 'rgba(255, 226, 150, 0)');
+            grad.addColorStop(0.07, `rgba(255, 224, 145, ${0.30 * w})`);
+            grad.addColorStop(0.34, `rgba(252, 204, 110, ${0.20 * w})`);
+            grad.addColorStop(0.64, `rgba(224, 178, 96, ${0.085 * w})`);
+            grad.addColorStop(1, 'rgba(190, 150, 80, 0)');
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(sa0) * R, cy + Math.sin(sa0) * R);
+            ctx.lineTo(cx + Math.cos(sa1) * R, cy + Math.sin(sa1) * R);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+          }
+        }
+
+        ctx.filter = 'none';
+        ctx.restore();
+      }
+
+      /**
+       * The star field.
+       *
+       * Deterministic — seeded from `hash12`, never `Math.random` — so the
+       * banner is byte-identical on every capture. A re-screenshot months from
+       * now produces the same image, which matters for something that ends up
+       * cached by every social platform.
+       *
+       * Colours are drawn from the festival's own palette rather than plain
+       * white, echoing the rainbow in the wordmark.
+       */
+      const STAR_HUES = [
+        [255, 236, 190], // warm white
+        [255, 205, 120], // gold
+        [150, 240, 195], // mint
+        [255, 165, 190], // rose
+        [165, 205, 255], // azure
+        [225, 180, 255], // violet
+      ];
+
+      function drawStars() {
+        const COUNT = 190;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
+        for (let i = 0; i < COUNT; i++) {
+          const x = hash12(i * 1.7, 3.1) * W;
+          const y = hash12(i * 2.9, 11.3) * H;
+          const t = hash12(i * 4.3, 27.7);
+
+          /* Keep the field off the wordmark. The centre of the frame is where
+             the mark and its halo sit, and stars there read as noise on top of
+             the logo rather than depth behind it. */
+          const dx = (x - W / 2) / (W / 2);
+          const dy = (y - H / 2) / (H / 2);
+          if (Math.hypot(dx * 1.15, dy * 1.6) < 0.62) continue;
+
+          const r = 0.6 + t * 1.7;
+          const [cr, cg, cb] = STAR_HUES[i % STAR_HUES.length];
+          const a = 0.18 + hash12(i * 5.1, 41.9) * 0.5;
+
+          // A soft point: a small bright core inside a wider falloff.
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.4);
+          g.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${a})`);
+          g.addColorStop(0.4, `rgba(${cr}, ${cg}, ${cb}, ${a * 0.35})`);
+          g.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, r * 3.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      drawShafts();
+      drawStars();
+    </script>
+  </body>
+</html>
