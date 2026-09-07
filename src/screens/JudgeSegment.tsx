@@ -65,6 +65,22 @@ export function JudgeSegment() {
   const blocked = scoreBlockReason(account, slug, segmentKey);
   const submitted = hasSubmitted(slug, segmentKey, judgeId);
 
+  /**
+   * A SUBMITTED sheet is locked until the judge reopens it.
+   *
+   * `writable` alone was not enough: it asks "may this seat score this
+   * segment", which stays true after submitting (the segment is still open),
+   * so every field on a submitted sheet still accepted typing. The screen
+   * said "Sheet submitted" and offered "Reopen to edit" while quietly taking
+   * edits anyway, and because each keystroke autosaves, those edits landed in
+   * storage without the judge ever reopening — a submitted sheet could drift
+   * from what the judge signed off on.
+   *
+   * Reopening is the deliberate unlock, which is what the button already
+   * promised. `unsubmitSheet` clears the submission and this flips back.
+   */
+  const editable = writable && !submitted;
+
   /* Shown once, right after this judge submits, not whenever `submitted` is
      true. A judge who reopens a submitted sheet to check a score should land
      on the sheet, not be told again that they submitted it; the persistent
@@ -101,6 +117,13 @@ export function JudgeSegment() {
       /* Re-check before the write, not just before the render. This is the
          line that makes a closed segment actually stop accepting scores. */
       if (!canScoreSegment(account, slug, segmentKey)) return;
+
+      /* And refuse a write to a SUBMITTED sheet. The inputs are disabled while
+         submitted, so this is the second layer rather than the first, but it
+         is the one that holds if a field is ever left enabled by mistake:
+         every keystroke autosaves, so an ungated path here silently rewrites
+         a sheet the judge has already signed off on. */
+      if (hasSubmitted(slug, segmentKey, judgeId)) return;
 
       const value = Number(raw);
       if (raw.trim() === '' || !Number.isFinite(value)) return;
@@ -201,8 +224,8 @@ export function JudgeSegment() {
 
       {submitted && !blocked && (
         <p className="notice" role="status">
-          You submitted this sheet. It stays editable until the tabulation head closes the
-          segment, reopen it below if you need to correct a score.
+          You submitted this sheet, so the scores below are locked. Reopen it to correct
+          a score, any time before the tabulation head closes the segment.
         </p>
       )}
 
@@ -216,9 +239,12 @@ export function JudgeSegment() {
             cells={cells}
             draft={draft}
             onCommit={commit}
-            readOnly={!writable}
+            /* `editable`, not `writable`: a submitted sheet is locked until
+               the judge reopens it. */
+            readOnly={!editable}
             segment={segment}
           />
+
         ))}
       </div>
 
@@ -227,6 +253,9 @@ export function JudgeSegment() {
         judgeId={judgeId}
         missing={missing}
         onSubmitted={(isFirst) => setJustSubmitted(isFirst ? 'first' : 'again')}
+        /* `writable`, NOT `editable`. The bar is what carries "Reopen to
+           edit", so gating it on `editable` would hide the one control that
+           unlocks a submitted sheet. */
         readOnly={!writable}
         segment={segment}
         segmentKey={segmentKey}
@@ -353,6 +382,20 @@ function ScoreRow({
           {candidate.photo && (
             <img alt="" aria-hidden="true" loading="lazy" src={candidate.photo} />
           )}
+          {/* The sash — a pageant strap across the portrait.
+           *
+           * Two elements: a round clipper that owns `overflow: hidden`, and
+           * the band inside it. The clip cannot go on the avatar itself
+           * because the number badge has to overhang that edge, and it cannot
+           * go on the band because the band is rotated — a `clip-path` on it
+           * would be rotated too, and `circle()` measured against its own
+           * oversized box does not describe the portrait.
+           *
+           * Decorative: the number is announced by the `.sr-only` text with
+           * the name below. */}
+          <span aria-hidden="true" className="score-row__sash-clip">
+            <span className="score-row__sash" />
+          </span>
           <span aria-hidden="true" className="score-row__badge">
             {candidate.number}
           </span>
