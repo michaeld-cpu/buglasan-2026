@@ -426,7 +426,6 @@ function ScoreRow({
                 <div
                   aria-labelledby={`${id}-legend`}
                   className="scorepad"
-                  data-span={cell.max > 20 ? 'wide' : 'narrow'}
                   id={id}
                   /* Arrow keys move the selection, which is how a radiogroup
                      is expected to behave and what replaces the Up/Down the

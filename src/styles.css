@@ -1525,19 +1525,20 @@ input { font: inherit; }
  * a landing strip and the number stays near its label.
  */
 /**
- * One column per criterion, but WIDER than before.
+ * One criterion per row, stacked.
  *
- * The old field was a 150px number input. A criterion is now a row of
- * whole-number buttons up to that criterion's max, so a column has to fit
- * either a 10-button row or (on the booth and Q&A sheets) a 50-button grid.
- * `minmax(min(260px, 100%), 1fr)` gives each one room to lay its numbers out;
- * the `min()` keeps a single column from overflowing a 320px phone.
+ * Not a multi-column grid any more. Each criterion's scores are now a single
+ * horizontal row of circles, so a criterion wants the full content width —
+ * side-by-side columns would halve the space and force the 30-50 ranges to
+ * scroll far sooner than they need to.
+ *
+ * Stacking also keeps the reading order honest: label, then its scale, then
+ * the next label. In two columns a judge's eye had to jump back up and across
+ * between a criterion's name and its numbers.
  */
 .criteria-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
-  gap: 1.1rem;
-  max-width: 860px;
+  gap: .9rem;
 }
 
 .criterion { display: grid; gap: .45rem; }
@@ -1561,54 +1562,78 @@ input { font: inherit; }
 .criterion__set legend span { color: var(--ink-dim); font-weight: 400; }
 
 /**
- * The score pad — whole numbers, 1 to the criterion's max.
+ * The score pad — whole numbers, 1 to the criterion's max, in ONE row.
  *
  * Replaces the number input and its steppers. Judges score on a tablet at a
  * table under stage lights, and the old field asked them to place a caret and
  * type; a number they can hit directly is fewer chances to mistype, and a
- * fixed set of buttons cannot produce a decimal or an out-of-range value at
- * all. The whole validation path for "is this a legal score" becomes
- * structural rather than something to check after the fact.
+ * fixed set of circles cannot produce a decimal or an out-of-range value at
+ * all. "Is this a legal score" becomes structural rather than validated.
  *
- * `auto-fill` with a min track rather than a fixed column count, so a 10-wide
- * row and a 50-wide grid both wrap sensibly at whatever width the column got.
+ * A single row, not a wrapped grid. A wrapped grid made a candidate on the
+ * festival sheet a full screen tall (four criteria, 100 buttons), and a row
+ * that reads left-to-right like a scale is easier to aim at than a block you
+ * have to search.
+ *
+ * It SCROLLS rather than shrinking. Measured: at the widest column the app
+ * gives a criterion (~860px), 20 circles fit at 38px each, but 30 would be
+ * 24px and 50 would be 12px — well under a thumb. Overflowing horizontally
+ * keeps every target the same comfortable size on every sheet; the
+ * alternative was tiny circles on exactly the segments with the most
+ * candidates to get through.
  */
 .scorepad {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
-  gap: 6px;
+  display: flex;
+  gap: 8px;
+  /* One row, always. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  /* Room for the scrollbar on the platforms that reserve one, so it never
+     overlaps the circles. */
+  padding-bottom: 4px;
+  /* Contain the scroll: swiping the row to reach 50 must not also drag the
+     sheet sideways. */
+  overscroll-behavior-x: contain;
+  /* Snap so a flick lands on whole circles rather than mid-number. */
+  scroll-snap-type: x proximity;
+  /* The same restrained bar the dialog and dev panel use. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--ink) 22%, transparent) transparent;
 }
-
-/* Above 20 options the buttons are allowed to get smaller: a 50-button grid at
-   44px each would be five rows deep on a phone and push the next candidate off
-   the screen. 38px is still comfortably over the 24px minimum target size and
-   close to the 44px guideline. */
-.scorepad[data-span='wide'] {
-  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
-  gap: 5px;
+.scorepad::-webkit-scrollbar { height: 6px; }
+.scorepad::-webkit-scrollbar-track { background: transparent; }
+.scorepad::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 20%, transparent);
 }
 
 /**
- * One number.
+ * One number — a circle.
  *
- * `aspect-ratio: 1` with a `min-height` floor rather than a fixed height, so
- * the buttons stay square as the grid stretches them but never fall below a
- * thumb-sized target on a narrow column.
+ * `flex: 0 0 auto` with a fixed width is what keeps the row from squeezing
+ * the circles to fit; the row scrolls instead. 40px clears the 24px minimum
+ * target size comfortably and is close to the 44px touch guideline, at a size
+ * where 10 of them still fit a phone without scrolling.
  */
 .scorepad__btn {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
-  min-height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--line-soft);
-  border-radius: var(--radius-sm);
+  /* The circle. */
+  border-radius: 50%;
   background: color-mix(in oklch, var(--ground) 82%, black);
   color: var(--ink-muted);
   font: inherit;
-  font-size: .95rem;
+  font-size: .92rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  /* `1` and `10` must not shift the row's rhythm. */
+  line-height: 1;
+  scroll-snap-align: center;
   cursor: pointer;
   transition:
     background var(--dur-1) var(--ease-out),
@@ -1622,16 +1647,18 @@ input { font: inherit; }
 }
 
 /* The chosen score. Filled in the program's accent rather than merely
-   outlined: a judge scanning down a sheet of 26 candidates needs to see at a
-   glance which cells are answered, and an outline reads as "focused" more than
+   outlined: a judge scanning a sheet of 26 candidates needs to see at a glance
+   which cells are answered, and an outline reads as "focused" more than
    "chosen". */
 .scorepad__btn[aria-checked='true'] {
   border-color: transparent;
   background: var(--program);
   color: oklch(0.24 0.05 74);
+  font-weight: 700;
 }
 
 .scorepad__btn:disabled { opacity: .5; cursor: not-allowed; }
+
 
 
 .criterion__error { color: var(--rose); font-size: .74rem; }
