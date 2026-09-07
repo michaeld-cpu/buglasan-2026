@@ -1479,9 +1479,27 @@ input { font: inherit; }
   /* Sits under a photo with transparency. `.is-empty` overrides it for
      entries that have no photograph at all. */
   background: color-mix(in oklch, var(--program) 20%, var(--surface-2));
+  /* Four stacked layers, innermost first:
+   *
+   *   1. A hairline gap in the card's own surface, so the ring reads as a
+   *      ring rather than as a gold edge painted on the photograph.
+   *   2. The gold ring itself.
+   *   3. + 4. A gold GLOW spreading outward from the ring.
+   *
+   * The glow is what separates the portrait from the card. Both are dark
+   * green at close values, so the avatar's edge was dissolving into the row
+   * behind it; a light source at the rim gives the circle a definite
+   * boundary without adding a heavier border, which would have eaten into
+   * the 64px photo.
+   *
+   * Two radii rather than one: a tight bright halo for the edge itself, then
+   * a wide faint one for the ambient lift. A single blur at either radius
+   * reads as a smudge — the near layer is what makes it look lit. */
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent);
+    0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent),
+    0 0 10px color-mix(in oklch, var(--program) 42%, transparent),
+    0 0 24px color-mix(in oklch, var(--program) 22%, transparent);
 }
 .score-row__avatar img {
   width: 100%;
@@ -1495,11 +1513,16 @@ input { font: inherit; }
   object-position: 50% 22%;
   display: block;
 }
+/* No photograph: a dimmer ring and a dimmer glow to match, so an empty slot
+   reads as a deliberate blank rather than as a portrait that failed to
+   load. The booth and contingent rosters have no photography at all. */
 .score-row__avatar.is-empty {
   background: var(--surface-2);
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent);
+    0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent),
+    0 0 10px color-mix(in oklch, var(--program) 18%, transparent),
+    0 0 24px color-mix(in oklch, var(--program) 10%, transparent);
 }
 
 /**
@@ -1518,78 +1541,6 @@ input { font: inherit; }
  * avatar, so the badge reads as punched through the portrait rather than
  * pasted on top of it.
  */
-/**
- * The sash: a pageant strap across the lower-left of the portrait.
- *
- * `-clip` is a circle the size of the portrait with `overflow: hidden`; the
- * band lives inside it. Both elements are needed. The clip cannot sit on the
- * avatar, because the number badge has to overhang that edge — and it cannot
- * sit on the band, because the band is rotated, so a `clip-path` on it rotates
- * with it and `circle()` against its own oversized box does not describe the
- * portrait. A separate unrotated clipper is the only place the circle is
- * actually the circle.
- *
- * Inset by the ring's width so the strap tucks under the gold rim rather than
- * painting over it.
- */
-.score-row__sash-clip {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/**
- * The band itself.
- *
- * Deliberately narrow — 22% of the avatar, not the 34% first tried, which
- * covered the candidate's face. A judge matches a portrait to a person on
- * stage, so the sash has to read as trim on the photograph and never compete
- * with it.
- *
- * Lower-LEFT to upper-right, so it runs away from the number badge on the
- * lower right instead of colliding with it.
- *
- * Gold, brighter along its spine: a flat fill reads as a sticker, a band with
- * a light centre reads as satin. Same three-stop logic as the Sign in
- * button's brushed metal, at lower opacity so the face stays visible through
- * the strap's darker edges.
- */
-.score-row__sash {
-  position: absolute;
-  /* Wider than the box so the rotated band still crosses it corner to
-     corner; the clipper trims the overhang. */
-  left: -30%;
-  right: -30%;
-  /* Low on the portrait, and aligned to the number circle.
-   *
-   * These headshots crop at `object-position: 50% 22%`, so the face occupies
-   * the upper two thirds and the strap belongs in the shoulder band below it.
-   *
-   * The exact offset comes from the badge, not from taste: the badge is 24px
-   * tall at `bottom: -2px` on a 64px avatar, so its centre sits 54px down
-   * (84%). At `bottom: 8%` with a 16% height the band's centre lands at 52.8px
-   * (83%) — within about a pixel — so the strap runs through the rosette
-   * rather than passing above it. If the avatar or badge size changes, redo
-   * that arithmetic. */
-  bottom: 8%;
-  height: 16%;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in oklch, var(--frame-lo) 85%, transparent) 0%,
-    color-mix(in oklch, var(--frame-mid) 95%, transparent) 45%,
-    color-mix(in oklch, var(--frame-hi) 88%, transparent) 58%,
-    color-mix(in oklch, var(--frame-lo) 90%, transparent) 100%
-  );
-  transform: rotate(-30deg);
-  /* A hairline dark edge so the strap sits ON the portrait rather than being
-     pasted into it. */
-  box-shadow:
-    0 -1px 2px rgba(0, 0, 0, .4),
-    0 1px 2px rgba(0, 0, 0, .35);
-}
-
 .score-row__badge {
   position: absolute;
   right: -2px;
