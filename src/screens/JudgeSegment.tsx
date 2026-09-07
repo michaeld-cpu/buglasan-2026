@@ -326,44 +326,36 @@ function ScoreRow({
       style={{ ['--i' as string]: index }}
     >
       <div className="score-row__head">
-        {/* The entry number, always shown, not just when a portrait is
-            missing.
-
-            It used to live inside the avatar as the no-photo fallback, which
-            meant that the moment candidates had photos the number vanished
-            from the sheet entirely. The number is how a judge is told who is
-            on stage ("number 7 please") and how they check they are scoring
-            the right row, so it has to survive a portrait rather than be
-            replaced by one, doubly so while every candidate shares one
-            placeholder face.
-
-            First in the row, ahead of the portrait: it is the index a judge
-            scans by, so it reads down one fixed column at the card's leading
-            edge rather than sitting behind a face. */}
-        <span className="score-row__num" aria-hidden="true">
-          {candidate.number}
-        </span>
-
-        {/* Photo container with a gold ring. The pageant rosters share ONE
-            placeholder portrait today; booth and contingent entries have no
-            photography at all.
-
-            The number used to render inside this circle when there was no
-            photo. It is gone: the gold index immediately to the left is the
-            same digit, and showing it twice on one row made the avatar look
-            like a second, competing identifier. A photoless entry now gets the
-            empty ring, styled as a deliberate blank rather than a gap.
-
-            Rendered only when a photo exists, so nothing is mounted for the
-            33 booth and contingent entries.
-
-            `alt=""` and `aria-hidden`: the number precedes this and the name
-            follows it, so alt text here would announce the same entry a third
-            time. */}
+        {/* Photo with the entry number as a corner badge.
+         *
+         * The number used to be its own column to the LEFT of the portrait.
+         * It is now pinned to the avatar itself, the way a presence dot sits on
+         * a chat avatar: the two describe the same person, so binding them into
+         * one object means a judge cannot read a number off one row while
+         * looking at the face from the next. It also buys the portrait real
+         * size, which is the point of the change, without the row growing to
+         * fit a separate digit beside it.
+         *
+         * The number MUST survive a portrait. It is how a judge is told who is
+         * on stage ("number 7 please") and how they confirm they are scoring
+         * the right row. An earlier version drew it inside the circle as the
+         * no-photo fallback, so it vanished the moment candidates had photos; a
+         * badge is present whether or not there is a face under it.
+         *
+         * The pageant rosters share ONE placeholder portrait today, and booth
+         * and contingent entries have no photography at all, which is what
+         * `.is-empty` styles as a deliberate blank rather than a gap.
+         *
+         * `alt=""` and `aria-hidden` throughout: the name that follows already
+         * announces "No. 7, Althea Marie Bacong", so labelling these would
+         * repeat the same entry two more times. */}
         <span className={`score-row__avatar${candidate.photo ? '' : ' is-empty'}`}>
           {candidate.photo && (
             <img alt="" aria-hidden="true" loading="lazy" src={candidate.photo} />
           )}
+          <span aria-hidden="true" className="score-row__badge">
+            {candidate.number}
+          </span>
         </span>
 
         <span className="score-row__who">

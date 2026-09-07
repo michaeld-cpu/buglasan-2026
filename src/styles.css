@@ -1409,24 +1409,36 @@ input { font: inherit; }
 
 .score-row__head { display: flex; align-items: center; gap: .85rem; margin-bottom: .85rem; }
 /**
- * The candidate avatar: a round portrait in a gold ring.
+ * The candidate avatar: a round portrait in a gold ring, with the entry
+ * number badged on its corner.
  *
- * Was a flat gold disc with the entry number knocked out of it. The ring is
- * drawn with `box-shadow` rather than `border`, so it sits OUTSIDE the 42px
- * box, a border would eat into it and leave the photo 38px, and the discs
- * would no longer line up with the text baseline beside them.
+ * 64px, up from 42px. A judge is matching a face on a stage 20 metres away to
+ * a thumbnail on a tablet, so the portrait is the one thing on this row worth
+ * spending space on; at 42px it was smaller than the score field beside it.
+ * The room comes from the number, which used to occupy its own column to the
+ * left and now sits on the avatar instead.
+ *
+ * `position: relative` anchors the badge. The ring is drawn with `box-shadow`
+ * rather than `border` so it sits OUTSIDE the box — a border would eat into
+ * the 64px and leave the photo smaller than the circle it lines up with.
  *
  * Two shadows: a hairline gap in the card's own surface, then the gold. That
  * gap is what makes the ring read as a ring rather than as a gold edge on the
- * photo, which matters most when a portrait's border happens to be light.
+ * photo, which matters most when a portrait's own border is light.
+ *
+ * NOT `overflow: hidden` any more. Clipping to the circle is what kept the
+ * photo round, but it also clipped the badge, which has to overhang the
+ * edge. The image is rounded on its own instead (see below), so the container
+ * is free to let the badge escape.
  */
 .score-row__avatar {
+  position: relative;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 42px; height: 42px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  overflow: hidden;
   /* Sits under a photo with transparency. `.is-empty` overrides it for
      entries that have no photograph at all. */
   background: color-mix(in oklch, var(--program) 20%, var(--surface-2));
@@ -1434,34 +1446,65 @@ input { font: inherit; }
     0 0 0 2px var(--surface),
     0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent);
 }
-
-/* `cover` on a square box: portraits arrive in whatever crop the programme
-   supplies, and a letterboxed face in a circle looks like a mistake. */
 .score-row__avatar img {
   width: 100%;
   height: 100%;
+  /* Rounded here rather than clipped by the parent, so the badge can overhang
+     the container without being cut off. */
+  border-radius: 50%;
   object-fit: cover;
   /* Faces sit high in a typical headshot, so bias the crop upward rather than
      centring it and cutting the forehead. */
   object-position: 50% 22%;
   display: block;
 }
-
-/**
- * A photoless entry, booths and contingents, which have no portraiture.
- *
- * The circle used to carry the entry number; that moved out to the gold index
- * at the head of the row, so this is now an intentionally empty disc. Quieter
- * than a portrait's ring so a column of blanks does not read as a column of
- * errors: the tint drops out and the ring thins to a hairline, leaving a
- * placeholder that is clearly a placeholder.
- */
 .score-row__avatar.is-empty {
   background: var(--surface-2);
   box-shadow:
     0 0 0 2px var(--surface),
     0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent);
 }
+
+/**
+ * The entry number, badged on the avatar's lower-right.
+ *
+ * Positioned like a presence indicator on a chat avatar, and for the same
+ * reason: it is a small fact ABOUT this person, so it belongs on their
+ * portrait rather than floating beside it.
+ *
+ * Lower-right specifically. Faces sit high in these headshots (see the
+ * `object-position` above), so the bottom corner is the part of the frame
+ * covering shoulders rather than a chin. Trailing rather than leading so it
+ * does not sit between the portrait and the name.
+ *
+ * The ring around it is `--surface`, matching the two-shadow gap on the
+ * avatar, so the badge reads as punched through the portrait rather than
+ * pasted on top of it.
+ */
+.score-row__badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  /* Sized to fit two digits: rosters run past 20, so a fixed circle would
+     either clip "23" or leave "7" swimming. `min-width` with a pill radius
+     grows sideways only when it must. */
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--program);
+  color: oklch(0.24 0.05 74);
+  font-size: .8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /* The cut-out ring. `box-shadow` not `border`, so it does not change the
+     badge's own size. */
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
 .score-row__who { flex: 1; min-width: 0; }
 /* A long entry name ("Sugar & Dolphins Pavilion") must wrap inside the card
    rather than widen it. `overflow-wrap` catches the single-long-word case an
@@ -1488,17 +1531,6 @@ input { font: inherit; }
  * label only stole width from it. Screen readers still hear "No. 7, <name>"
  * from the `.sr-only` string in the markup.
  */
-.score-row__num {
-  flex-shrink: 0;
-  min-width: 1.6ch;
-  color: var(--program);
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -.02em;
-  text-align: center;
-}
 .score-row__who span { color: var(--ink-dim); font-size: .82rem; overflow-wrap: anywhere; }
 
 .score-row__total {
