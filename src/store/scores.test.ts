@@ -100,3 +100,32 @@ describe('submitSheet — first vs resubmission', () => {
     expect(submitSheet(SLUG, 'gown', 'judge-1')).toBe(true);
   });
 });
+
+describe('integers only', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetPageant(SLUG);
+  });
+
+  it('stores whole-number scores', () => {
+    saveScores(SLUG, 'aquatic', 'judge-1', [
+      { candidateId: 'cand-a', criterionKey: null, value: 7 },
+    ]);
+    expect(scoresFor(SLUG, 'aquatic', 'judge-1')[0].value).toBe(7);
+  });
+
+  it('round-trips every value the pad can produce, 1..max', () => {
+    const max = 10;
+    for (let n = 1; n <= max; n++) {
+      saveScores(SLUG, 'aquatic', 'judge-1', [
+        { candidateId: `c-${n}`, criterionKey: null, value: n },
+      ]);
+    }
+    const rows = scoresFor(SLUG, 'aquatic', 'judge-1');
+    expect(rows).toHaveLength(max);
+    expect(rows.every((r) => Number.isInteger(r.value))).toBe(true);
+    expect(rows.map((r) => r.value).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: max }, (_, i) => i + 1),
+    );
+  });
+});

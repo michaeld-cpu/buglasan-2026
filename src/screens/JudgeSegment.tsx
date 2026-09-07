@@ -21,8 +21,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from '@phosphor-icons/react/dist/icons/ArrowLeft';
-import { CaretDown } from '@phosphor-icons/react/dist/icons/CaretDown';
-import { CaretUp } from '@phosphor-icons/react/dist/icons/CaretUp';
 import { Check } from '@phosphor-icons/react/dist/icons/Check';
 import type { Candidate, Criterion, Segment } from '@judges/scoring';
 import { Shell } from '../components/Shell';
@@ -107,6 +105,15 @@ export function JudgeSegment() {
 
       const max = maxFor(segment, criterionKey);
       if (value < 0 || value > max) return; // out of range: held locally, flagged, not saved
+
+      /* Whole numbers only, for now.
+       *
+       * The score pad can only produce integers, so this cannot trip from the
+       * UI — it is here for the other ways a value arrives: a draft rehydrated
+       * from localStorage written by an earlier build that allowed halves, or
+       * the rehearsal bar's `simulateSegment`. Rejecting rather than rounding,
+       * because silently turning a judge's 7.5 into 8 is a changed score. */
+      if (!Number.isInteger(value)) return;
 
       saveScores(slug, segmentKey, judgeId, [{ candidateId, criterionKey, value }]);
     },
@@ -272,7 +279,12 @@ function missingRows(
       const raw = draft[cellKey(c.id, cell.key)];
       if (raw === undefined || raw.trim() === '') return true;
       const v = Number(raw);
-      return !Number.isFinite(v) || v < 0 || v > cell.max;
+      /* `v < 1`, not `v < 0`: the score pad's lowest button is 1, so a stored
+         0 would show as nothing selected while counting the row as complete —
+         a judge would be told the sheet was done with a visibly empty cell.
+         Non-integers are incomplete too, for the same reason: the pad cannot
+         display a 7.5, so it would render as unscored. */
+      return !Number.isFinite(v) || !Number.isInteger(v) || v < 1 || v > cell.max;
     }));
 }
 
@@ -298,7 +310,14 @@ function ScoreRow({
   /** Row position, feeding the list's staggered entrance (`--i`). */
   index: number;
 }) {
-  const values = cells.map((cell) => Number(draft[cellKey(candidate.id, cell.key)] ?? NaN));
+  /* `Number('')` is 0, not NaN, so a cleared cell has to be treated as blank
+     BEFORE it is coerced. Without this, re-tapping a score to clear it left
+     the row's total reading "0 of 10" and counted the row as answered — a
+     judge would see a total for a candidate they had deliberately unscored. */
+  const values = cells.map((cell) => {
+    const raw = draft[cellKey(candidate.id, cell.key)];
+    return raw === undefined || raw.trim() === '' ? NaN : Number(raw);
+  });
   const anyBlank = values.some((v) => !Number.isFinite(v));
 
   /* The judge's own total for this candidate. On CRITERIA_SUM it is the sheet
@@ -386,86 +405,92 @@ function ScoreRow({
 
           return (
             <div className="criterion" key={cell.key ?? 'single'}>
-              <label htmlFor={id}>
-                {cell.label} <span>/ {cell.max}</span>
-              </label>
-              {/* The steppers are positioned against THIS box, not against the
-                  criterion, so they stay centred on the field no matter how
-                  many lines the label above wraps to. */}
-              <span className="criterion__field">
-              <input
-                aria-invalid={invalid ? 'true' : undefined}
-                disabled={readOnly}
-                id={id}
-                /* `decimal` rather than `numeric`: half-points are legal on
-                   several segments and a keypad without a decimal key makes
-                   them unenterable. */
-                inputMode="decimal"
-                max={cell.max}
-                min={0}
-                onChange={(e) => onCommit(candidate.id, cell.key, e.target.value)}
-                /* Scrolling must never change a score.
-                 *
-                 * A focused `type=number` input treats wheel and two-finger
-                 * trackpad scroll as increment/decrement, so a judge scrolling
-                 * the sheet past the field they just typed into silently edits
-                 * it, and the store commits on change, so the wrong number is
-                 * saved without anyone touching a key. That is the single most
-                 * damaging input bug this screen could have.
-                 *
-                 * Blurring rather than `preventDefault` because React attaches
-                 * `onWheel` passively and cannot cancel the event; dropping
-                 * focus removes the target the browser would have stepped.
-                 * The page keeps scrolling normally, which is what the judge
-                 * actually asked for by scrolling. */
-                onWheel={(e) => e.currentTarget.blur()}
-                type="number"
-                value={raw}
-              />
+              {/* A `fieldset`, not a `label` + input: the control is now a
+                  group of radio-style buttons, and a group needs a legend for
+                  a screen reader to announce what the buttons belong to. */}
+              <fieldset className="criterion__set">
+                <legend id={`${id}-legend`}>
+                  {cell.label} <span>/ {cell.max}</span>
+                </legend>
 
-              {/* Brand steppers, replacing the grey native spinners the CSS
-                  above now suppresses.
+                {/* Whole numbers 1..max as buttons, in place of a typed field.
+                    No decimals: the brief is integers only for now, and a row
+                    of buttons cannot express a half-point, which is the point.
 
-                  `tabIndex={-1}` and `aria-hidden`: a keyboard user already
-                  has Up/Down on the focused input, so exposing two more stops
-                  per criterion would triple the tab path through a sheet of 26
-                  candidates for no new capability. These are for thumbs.
-
-                  Clamped and rounded to one decimal — `step` on a bare
-                  `type=number` would let a judge hold the button past
-                  `cell.max` and commit an out-of-range score. */}
-              {!readOnly && (
-                <span aria-hidden="true" className="criterion__step">
-                  <button
-                    className="criterion__step-btn"
-                    disabled={v >= cell.max}
-                    onClick={() => {
-                      const next = Math.min(cell.max, Math.round(((v || 0) + 1) * 10) / 10);
-                      onCommit(candidate.id, cell.key, String(next));
-                    }}
-                    tabIndex={-1}
-                    type="button"
-                  >
-                    <CaretUp size={11} weight="bold" />
-                  </button>
-                  <button
-                    className="criterion__step-btn"
-                    disabled={raw.trim() === '' || v <= 0}
-                    onClick={() => {
-                      const next = Math.max(0, Math.round(((v || 0) - 1) * 10) / 10);
-                      onCommit(candidate.id, cell.key, String(next));
-                    }}
-                    tabIndex={-1}
-                    type="button"
-                  >
-                    <CaretDown size={11} weight="bold" />
-                  </button>
-                </span>
-              )}
-              </span>
+                    `role="radiogroup"` + `aria-checked` rather than real
+                    radios, because a real radio group makes every option a tab
+                    stop; with up to 50 options across several criteria that
+                    would bury the Submit button behind hundreds of stops. The
+                    group takes ONE stop and arrow keys move within it, which
+                    is what the ARIA pattern prescribes anyway. */}
+                <div
+                  aria-labelledby={`${id}-legend`}
+                  className="scorepad"
+                  data-span={cell.max > 20 ? 'wide' : 'narrow'}
+                  id={id}
+                  /* Arrow keys move the selection, which is how a radiogroup
+                     is expected to behave and what replaces the Up/Down the
+                     old number input gave for free. Home/End jump to the ends
+                     of the range. */
+                  onKeyDown={(e) => {
+                    if (readOnly) return;
+                    const cur = Number.isFinite(v) ? v : 0;
+                    let next: number | null = null;
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                      next = Math.min(cell.max, cur + 1);
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                      next = Math.max(1, cur - 1);
+                    } else if (e.key === 'Home') {
+                      next = 1;
+                    } else if (e.key === 'End') {
+                      next = cell.max;
+                    }
+                    if (next === null) return;
+                    e.preventDefault();
+                    onCommit(candidate.id, cell.key, String(next));
+                    /* Move focus with the selection, so the roving tabindex
+                       and the DOM focus stay in agreement. */
+                    const group = e.currentTarget;
+                    window.requestAnimationFrame(() => {
+                      const btn = group.querySelector<HTMLButtonElement>(
+                        `[data-n="${next}"]`,
+                      );
+                      btn?.focus();
+                    });
+                  }}
+                  role="radiogroup"
+                >
+                  {Array.from({ length: cell.max }, (_, i) => i + 1).map((n) => {
+                    const picked = v === n;
+                    return (
+                      <button
+                        aria-checked={picked}
+                        className="scorepad__btn"
+                        data-n={n}
+                        disabled={readOnly}
+                        key={n}
+                        onClick={() => {
+                          /* Tapping the picked number again clears it, so a
+                             judge who mis-taps is not forced to leave a wrong
+                             score standing. */
+                          onCommit(candidate.id, cell.key, picked ? '' : String(n));
+                        }}
+                        role="radio"
+                        /* Only the selected button — or the first, when
+                           nothing is picked yet — is in the tab order. That is
+                           the roving-tabindex half of the radiogroup pattern. */
+                        tabIndex={picked || (!Number.isFinite(v) && n === 1) ? 0 : -1}
+                        type="button"
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
               {invalid && (
-                <span className="criterion__error">Enter 0 – {cell.max}</span>
+                <span className="criterion__error">Enter 1 – {cell.max}</span>
               )}
             </div>
           );
