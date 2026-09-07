@@ -1378,6 +1378,118 @@ input { font: inherit; }
 .sheet-progress b { color: var(--program); }
 
 
+/**
+ * The view toggle.
+ *
+ * Bare text with a gold underline, not a boxed chip. A segmented control was
+ * tried first and read as the loudest thing in the header — heavier than the
+ * segment name above it — which is the same problem that took the box off the
+ * segment list's status pill. The app's idiom for a control like this is text
+ * plus a light affordance (see `.back-button`, `.text-button`), so this
+ * follows it.
+ *
+ * The underline is `currentColor` at low alpha rather than a border, so it
+ * thickens on the pressed state without the button changing size and
+ * nudging the progress count beside it.
+ */
+.sheet-view {
+  flex: 0 0 auto;
+  padding: .15rem 0;
+  border: 0;
+  border-bottom: 1.5px solid color-mix(in oklch, var(--program) 40%, transparent);
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+.sheet-view:hover {
+  border-bottom-color: var(--program);
+  color: var(--ink);
+}
+/* Pressed: the review view is open. Gold text and a full-strength rule, so
+   the control reports the state it is in rather than only what it does. */
+.sheet-view[aria-pressed='true'] {
+  border-bottom-color: var(--program);
+  color: var(--program);
+}
+
+/**
+ * The ranked review list.
+ *
+ * Deliberately NOT the score row. It carries no fields — see the note in
+ * JudgeSegment — and it is denser, because this view is read at a glance to
+ * answer "who is on top, who is at the bottom" rather than worked through row
+ * by row.
+ */
+.rank-list { display: grid; gap: .5rem; }
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  min-width: 0;
+  padding: .6rem .9rem;
+  border-radius: var(--radius-md);
+  --frost-tint: 1.8;
+}
+
+/* The placing. Blank on a tie's second and subsequent rows, which is what
+   makes a shared placing legible without repeating the number. */
+.rank-row__place {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  color: var(--program);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* The entry number, so a judge can cross-reference the sheet they were
+   scoring in. Dimmer than the placing: in this view the placing is the
+   subject and the entry number is the identifier. */
+.rank-row__num {
+  flex: 0 0 auto;
+  min-width: 1.4rem;
+  color: var(--ink-dim);
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rank-row__name { flex: 1; min-width: 0; }
+.rank-row__name strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: .92rem;
+  font-weight: 600;
+}
+.rank-row__name span { color: var(--ink-dim); font-size: .78rem; }
+
+.rank-row__score {
+  flex: 0 0 auto;
+  color: var(--program);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rank-row__max { color: var(--ink-dim); font-size: .74rem; font-weight: 400; }
+
+/* Who is still outstanding. A note, not a row: these candidates have no
+   placing yet, so giving them row treatment would imply one. */
+.rank-list__pending {
+  margin: .35rem 0 0;
+  color: var(--ink-dim);
+  font-size: .8rem;
+}
+.rank-list__pending b { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+
 .score-rows { display: grid; gap: .85rem; }
 
 .score-row {

@@ -13,9 +13,27 @@
  * - **Refuse an incomplete sheet, naming what is missing.** A judge who taps
  *   Submit with candidate 9 blank gets told "candidate 9", not "please
  *   complete the form".
- * - **No running totals across candidates, ever.** A judge sees their own
- *   per-candidate total (so they can sanity-check their own arithmetic) and
- *   nothing else. No standings, no other judges, no leaderboard.
+ * - **A judge sees their OWN scores and nothing else.** Never another judge's,
+ *   never a panel aggregate, never a standing. What a judge cannot see is any
+ *   number they did not enter themselves.
+ *
+ *   This originally read "no running totals across candidates, ever" and
+ *   forbade any ordering of the sheet. Stakeholders asked for a leading/least
+ *   view and that rule was retired deliberately — it is recorded here rather
+ *   than deleted, because the reasoning behind it still constrains the
+ *   feature:
+ *
+ *     - The ranked view is REVIEW ONLY and carries no input fields. A sheet
+ *       that reorders under a judge mid-scoring is how a score lands on the
+ *       wrong candidate, and "number 7 please" only works if row 7 stays put.
+ *     - Sheet order is the default, and the toggle does not appear until two
+ *       candidates are scored.
+ *     - It ranks the judge's own draft, computed by the same
+ *       `candidateTotal` the rows display, so the two cannot disagree.
+ *
+ *   Anchoring bias is the live risk here and this does not remove it — it
+ *   confines it to a view a judge opts into after scoring rather than one
+ *   they type into.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -76,6 +94,20 @@ export function JudgeSegment() {
    * as odd. `submitSheet` returns which it was. */
   const [justSubmitted, setJustSubmitted] = useState<'first' | 'again' | null>(null);
 
+  /**
+   * Sheet order vs the judge's own ranking.
+   *
+   * `'sheet'` — by entry number, and the default. It is the order a judge is
+   * called through ("number 7 please") and the only order that stays still
+   * while they type, so it is what they score in.
+   *
+   * `'ranked'` — highest of their own scores first. A REVIEW view: it answers
+   * "who am I leading, who am I placing last" without the sheet reordering
+   * itself under a judge mid-scoring. Rows are read-only here, so a number
+   * cannot be typed into a row that just moved.
+   */
+  const [order, setOrder] = useState<'sheet' | 'ranked'>('sheet');
+
   const candidates = useMemo(
     () => state.candidates.filter((c) => c.status === 'ACTIVE').sort((a, b) => a.number - b.number),
     [state.candidates]);
@@ -129,6 +161,31 @@ export function JudgeSegment() {
   }
 
   const missing = missingRows(candidates, cells, draft);
+
+  /**
+   * The judge's own ranking of the candidates they have scored.
+   *
+   * Highest total first. That direction is right on every program: Hara
+   * converts raw scores to per-judge ranks via `averageTieRanks`, which
+   * assigns rank 1 to the HIGHEST raw score, and the other three are
+   * points-highest-wins. So "leading" means the same thing everywhere and
+   * this needs no per-program branch.
+   *
+   * Unscored candidates are held out rather than sorted to the bottom: a
+   * blank is not a low score, and listing them among the placings would
+   * read as "last" for someone the judge simply has not reached yet.
+   */
+  const ranked = useMemo(() => {
+    const scored: Array<{ candidate: Candidate; total: number }> = [];
+    const unscored: Candidate[] = [];
+    for (const c of candidates) {
+      const total = candidateTotal(segment!, cells, draft, c.id);
+      if (total === null) unscored.push(c);
+      else scored.push({ candidate: c, total });
+    }
+    scored.sort((a, b) => b.total - a.total || a.candidate.number - b.candidate.number);
+    return { scored, unscored };
+  }, [candidates, segment, cells, draft]);
   const complete = missing.length === 0;
 
   /* The success screen replaces the sheet rather than overlaying it. A judge
@@ -194,7 +251,32 @@ export function JudgeSegment() {
           <span className="sheet-progress">
             <b>{candidates.length - missing.length}</b> / {candidates.length} scored
           </span>
+
+          {/* One toggle, not a segmented control.
+           *
+           * A two-chip switch was tried and read as heavier than the segment
+           * name it sat under — the same reason the status pill on the segment
+           * list lost its box. This is a single button that names the view it
+           * goes TO, which is how the rest of the app words its controls
+           * ("Reopen to edit", "Keep editing").
+           *
+           * `aria-pressed` rather than a radiogroup: it is one control with an
+           * on state, and that is what a screen reader should hear.
+           *
+           * Hidden until two candidates are scored — below that a "ranking" is
+           * one row or none. */}
+          {ranked.scored.length > 1 && (
+            <button
+              aria-pressed={order === 'ranked'}
+              className="sheet-view"
+              onClick={() => setOrder(order === 'ranked' ? 'sheet' : 'ranked')}
+              type="button"
+            >
+              {order === 'ranked' ? 'Back to sheet' : 'My ranking'}
+            </button>
+          )}
         </div>
+
       </div>
 
       {blocked && <p className="notice" role="status">{blocked}</p>}
@@ -207,20 +289,70 @@ export function JudgeSegment() {
       )}
 
 
-      <div className="score-rows">
-        {candidates.map((candidate, i) => (
-          <ScoreRow
-            index={i}
-            key={candidate.id}
-            candidate={candidate}
-            cells={cells}
-            draft={draft}
-            onCommit={commit}
-            readOnly={!writable}
-            segment={segment}
-          />
-        ))}
-      </div>
+      {order === 'ranked' ? (
+        /* REVIEW ONLY. Read-only rows, and deliberately not the scoring
+         * surface: a judge types into an unmoving sheet, so the fields are
+         * absent here rather than disabled — a field that moved between
+         * keystrokes is how a score lands on the wrong candidate. Switch back
+         * to Sheet order to edit. */
+        <div className="rank-list">
+          {ranked.scored.map((entry, i) => {
+            /* Ties share a placing. Two candidates on 8.5 are both 1st, and
+               the next is 3rd — the same average-tie convention the scoring
+               engine uses, so this view cannot imply an order the tabulation
+               does not. */
+            const prev = ranked.scored[i - 1];
+            const place =
+              prev && prev.total === entry.total
+                ? null
+                : ranked.scored.findIndex((e) => e.total === entry.total) + 1;
+            return (
+              <div className="rank-row frosted" key={entry.candidate.id}>
+                <span className="rank-row__place">{place === null ? '' : place}</span>
+                <span className="rank-row__num" aria-hidden="true">
+                  {entry.candidate.number}
+                </span>
+                <span className="rank-row__name">
+                  <strong>
+                    <span className="sr-only">No. {entry.candidate.number}, </span>
+                    {entry.candidate.name}
+                  </strong>
+                  <span>{entry.candidate.lgu}</span>
+                </span>
+                <span className="rank-row__score">
+                  {round1(entry.total)}
+                  <span className="rank-row__max"> / {segment.maxTotal}</span>
+                </span>
+              </div>
+            );
+          })}
+
+          {/* Held out of the placings rather than ranked last — a blank is
+              not a low score. Named, so a judge can see who is still
+              outstanding without leaving this view. */}
+          {ranked.unscored.length > 0 && (
+            <p className="rank-list__pending">
+              Not yet scored:{' '}
+              <b>{ranked.unscored.map((c) => c.number).join(', ')}</b>
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="score-rows">
+          {candidates.map((candidate, i) => (
+            <ScoreRow
+              index={i}
+              key={candidate.id}
+              candidate={candidate}
+              cells={cells}
+              draft={draft}
+              onCommit={commit}
+              readOnly={!writable}
+              segment={segment}
+            />
+          ))}
+        </div>
+      )}
 
       <SubmitBar
         complete={complete}
@@ -304,21 +436,12 @@ function ScoreRow({
      answered — a judge would see a total for a candidate they had just
      emptied. `?? NaN` alone does not catch it: the draft holds `''`, not
      `undefined`, once the field has been touched. */
-  const values = cells.map((cell) => {
-    const raw = draft[cellKey(candidate.id, cell.key)];
-    return raw === undefined || raw.trim() === '' ? NaN : Number(raw);
-  });
-  const anyBlank = values.some((v) => !Number.isFinite(v));
-
   /* The judge's own total for this candidate. On CRITERIA_SUM it is the sheet
      total; on CRITERIA_MEAN the weighted mean; on SEGMENT_SINGLE it is just
      the one number echoed back. Shown so a judge can check their own
-     arithmetic, never a comparison against anyone else. */
-  const total = anyBlank
-    ? null
-    : segment.inputMode === 'CRITERIA_MEAN'
-      ? weightedMean(segment, cells, values)
-      : values.reduce((a, b) => a + b, 0);
+     arithmetic. */
+  const total = candidateTotal(segment, cells, draft, candidate.id);
+  const anyBlank = total === null;
 
   return (
     <div
@@ -720,6 +843,36 @@ function ReviewDialog({
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * One candidate's total, from the judge's own draft. `null` if any cell is
+ * blank or out of range.
+ *
+ * Extracted so the score row and the ranked review view cannot disagree: they
+ * previously computed this the same way by coincidence, and a leaderboard
+ * that ranks by a different number than the row displays would be a quiet
+ * way to mislead a judge about their own sheet.
+ */
+function candidateTotal(
+  segment: Segment,
+  cells: Array<{ key: string | null; max: number }>,
+  draft: Record<string, string>,
+  candidateId: string): number | null {
+  const values = cells.map((cell) => {
+    const raw = draft[cellKey(candidateId, cell.key)];
+    /* `Number('')` is 0, not NaN, so a cleared cell has to be caught before
+       it is coerced. */
+    return raw === undefined || raw.trim() === '' ? NaN : Number(raw);
+  });
+  if (values.some((v) => !Number.isFinite(v))) return null;
+  /* Out of range counts as unscored here too: the store refuses to save it,
+     so ranking on it would order the sheet by a number nobody holds. */
+  if (values.some((v, i) => v < 0 || v > cells[i].max)) return null;
+
+  return segment.inputMode === 'CRITERIA_MEAN'
+    ? weightedMean(segment, cells, values)
+    : values.reduce((a, b) => a + b, 0);
+}
 
 function weightedMean(
   segment: Segment,
