@@ -1874,25 +1874,30 @@ input { font: inherit; }
 /* Room for the steppers so a three-character score ("10.5") cannot slide
    under them. The field stays centre-aligned; this is symmetric padding, not
    a right inset, so the digits remain visually centred. */
-/* Room for the steppers on the right and the max on the left, so a
-   three-character score ("10.5") cannot slide under either. Symmetric, so the
-   digits stay optically centred in the box. */
-.criterion input { padding-inline: 34px 28px; }
+/* Room on the right for the steppers AND the max that now sits beside them,
+   with a matching inset on the left so the judge's digits stay optically
+   centred in the box rather than pushed off to one side. */
+.criterion input { padding-inline: 56px; }
 
 /**
- * The criterion's maximum, inside the field.
+ * The criterion's maximum, inside the field and immediately AFTER the score.
  *
- * Left edge, opposite the steppers, with the judge's own value centred
- * between them. Dim and small so it reads as the denominator it is rather
- * than competing with the gold score.
+ * It sat on the left edge first, which put the denominator before the
+ * numerator — "/ 10  8.5" reads backwards. On the right it reads as one
+ * expression, "8.5 / 10", the way a score is spoken.
  *
- * `pointer-events: none` so tapping it focuses the input underneath instead
- * of doing nothing — the whole box should behave like one field.
+ * Positioned just inside the steppers (which own `right: 6px` and are 18px
+ * wide), so the three parts of the box run value, max, arrows without
+ * overlapping.
+ *
+ * Dim and small so it reads as the denominator it is rather than competing
+ * with the gold score. `pointer-events: none` so tapping it focuses the input
+ * underneath instead of doing nothing — the whole box behaves as one field.
  */
 .criterion__max {
   position: absolute;
   top: 50%;
-  left: 8px;
+  right: 30px;
   transform: translateY(-50%);
   color: var(--ink-dim);
   font-size: .78rem;
