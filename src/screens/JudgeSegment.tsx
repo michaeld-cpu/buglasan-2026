@@ -387,8 +387,12 @@ function ScoreRow({
 
           return (
             <div className="criterion" key={cell.key ?? 'single'}>
-              <label htmlFor={id}>
-                {cell.label} <span>/ {cell.max}</span>
+              {/* The visible label is gone — the max now lives inside the
+                  field as ghost text, so a criterion is its box and nothing
+                  else. Kept for screen readers, which have no placeholder to
+                  read once a value is typed over it. */}
+              <label className="sr-only" htmlFor={id}>
+                {cell.label} (out of {cell.max})
               </label>
               {/* The steppers are positioned against THIS box, not against the
                   criterion, so they stay centred on the field no matter how
@@ -404,6 +408,11 @@ function ScoreRow({
                 inputMode="decimal"
                 max={cell.max}
                 min={0}
+                /* The max as ghost text, replacing the label above the box.
+                   It disappears the moment a judge types, which is the point:
+                   the ceiling matters while the field is empty and stops
+                   mattering once there is a number to read. */
+                placeholder={`/ ${cell.max}`}
                 onChange={(e) => onCommit(candidate.id, cell.key, e.target.value)}
                 /* Scrolling must never change a score.
                  *
@@ -473,16 +482,21 @@ function ScoreRow({
         })}
       </div>
 
-      {/* The judge's running total, last on the line.
+      {/* The running total, ONLY where it is not a restatement.
        *
-       * It used to sit inside `__head`, pinned to the far right of the card
-       * while the fields sat on a line below — which is what left most of the
-       * card empty. After the grid, the row reads left to right as: who they
-       * are, what you scored them, what it adds up to. */}
-      <span className="score-row__total">
-        <b>{total === null ? '—' : round1(total)}</b>
-        <span>of {segment.maxTotal}</span>
-      </span>
+       * On a single-score sheet the total is the one field's value echoed
+       * back, so showing both put the same number on the row twice — which is
+       * what made this end of the card look cluttered. Dropped there.
+       *
+       * On a multi-criteria sheet it is a real computation the judge cannot do
+       * at a glance (a sum on CRITERIA_SUM, a weighted mean on CRITERIA_MEAN),
+       * so it stays. */}
+      {cells.length > 1 && (
+        <span className="score-row__total">
+          <b>{total === null ? '—' : round1(total)}</b>
+          <span>of {segment.maxTotal}</span>
+        </span>
+      )}
     </div>
   );
 }
