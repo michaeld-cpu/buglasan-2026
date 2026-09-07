@@ -1429,83 +1429,150 @@ input { font: inherit; }
  * order, so each step states its own placing — position alone must not be
  * the only thing carrying it.
  *
- * `align-items: end` is what makes the steps a podium: the cards are
- * different heights and they sit on a common floor, so the tallest reads as
- * the winner's step rather than as a card that happens to be bigger.
+ * It is built as a STAGE, not as three cards: each step is a contestant
+ * standing above a block, the blocks are flush against each other on a
+ * common floor, and their HEIGHT is what ranks them. That silhouette is the
+ * only thing a podium says that the list below cannot, so the heights are
+ * far apart (1st is more than double 3rd) — a 10-15% difference reads as a
+ * rendering accident rather than as a ranking.
  */
 .podium {
+  /* A stage, not three cards. The blocks share a floor (`align-items: end`)
+     and differ in HEIGHT, which is the whole point of a podium: the ranking
+     is legible as a silhouette before any text is read.
+
+     Gap is 0 — real podium blocks are flush against each other, and a gap
+     turns the stage back into three separate cards. */
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: end;
-  gap: .6rem;
-  margin: 0;
-  padding: 0;
+  gap: 0;
+  /* Room for the floor rule below, so the blocks rest ON something. Without
+     it the three blocks simply stop in mid-air and read as clipped rather
+     than as standing on a stage. */
+  margin: 0 0 .55rem;
+  padding: 0 0 .5rem;
   list-style: none;
+  position: relative;
+  border-bottom: 1px solid color-mix(in oklch, var(--ink) 14%, transparent);
 }
-
-.podium__step {
-  display: grid;
-  justify-items: center;
-  gap: .3rem;
-  padding: 1rem .7rem .85rem;
-  border-radius: var(--radius-lg);
-  text-align: center;
-  /* The frosted surface, applied here rather than via the class so each step
-     can carry its own tint per placing below. */
+/* The floor: a short gold wash directly under the winner's block, brightest
+   at the centre, so the stage is lit where the eye already is. */
+.podium::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
   background:
     linear-gradient(
-      160deg,
-      color-mix(in oklch, var(--surface-2) calc(22% * var(--frost-tint, 1.8)), transparent) 0%,
-      color-mix(in oklch, var(--surface) calc(15% * var(--frost-tint, 1.8)), transparent) 46%,
-      color-mix(in oklch, var(--ground) calc(25% * var(--frost-tint, 1.8)), transparent) 100%
+      90deg,
+      transparent 0%,
+      color-mix(in oklch, var(--program) 45%, transparent) 50%,
+      transparent 100%
+    );
+}
+.podium__step {
+  display: grid;
+  /* Two rows: the contestant, then their block.
+   *
+   * The first row is `1fr` and every step shares the grid's height, so all
+   * three contestant areas are the same size and each portrait sits directly
+   * on its own block. With `auto` rows the winner floated well above the
+   * plinth — the taller block pushed the row down and the short columns had
+   * nothing to fill the space. `align-items: end` on that row keeps the
+   * contestant's feet at the block's top face. */
+  grid-template-rows: 1fr auto;
+  align-items: end;
+  justify-items: center;
+  gap: .5rem;
+  min-width: 0;
+}
+
+/* The contestant standing on the block. No surface of its own — a card here
+   would read as a tile and undo the stage. */
+.podium__who {
+  display: grid;
+  justify-items: center;
+  /* Packed to the BOTTOM of its row so the contestant's details sit right on
+     the top face of their block. The row is `1fr` and shared across all
+     three steps, so without this the content floats at the top of a tall
+     row and the winner appears to hover above the podium. */
+  align-content: end;
+  gap: .15rem;
+  /* Bounded to its own column. A long name ("Elaine Kirstie Poblete") was
+     spilling out of the side steps and crowding the winner in the middle —
+     `overflow-wrap` on the name lets it break, but only once something
+     actually constrains the width. */
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 .35rem;
+  text-align: center;
+}
+
+/* ── The block ──────────────────────────────────────────────────────────
+ *
+ * Height per placing is what ranks the three. The numbers are deliberately
+ * far apart (1st is more than double 3rd) because at a glance a 10-15%
+ * difference reads as a rendering accident rather than as a ranking.
+ *
+ * `border-radius` only on the top corners: the bottom edge is the stage
+ * floor, and rounding it would make each block float.
+ */
+.podium__plinth {
+  display: grid;
+  place-items: center;
+  align-self: end;
+  width: 100%;
+  height: var(--plinth-h, 3rem);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--surface-2) calc(30% * var(--frost-tint, 1.8)), transparent) 0%,
+      color-mix(in oklch, var(--ground) calc(30% * var(--frost-tint, 1.8)), transparent) 100%
     );
   -webkit-backdrop-filter: blur(56px) saturate(140%);
   backdrop-filter: blur(56px) saturate(140%);
   border: 1px solid color-mix(in oklch, var(--ink) 12%, transparent);
-  border-top-color: color-mix(in oklch, var(--ink) 24%, transparent);
+  border-bottom: 0;
+  /* A lit top face, so the block reads as a solid with a surface a
+     contestant could stand on rather than as a flat panel. */
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--ink) 22%, transparent);
 }
 
-/* First place: taller step, warmer surface, gold rim. The height difference
-   is what makes this a podium rather than three equal cards. */
-.podium__step[data-place='1'] {
-  --frost-tint: 2.4;
-  padding-top: 1.6rem;
+/* First is tallest, centre column, and the only one in gold. */
+.podium__step[data-place='1'] .podium__plinth {
+  --frost-tint: 2.6;
+  --plinth-h: 7rem;
   border-color: color-mix(in oklch, var(--program) 45%, transparent);
-  border-top-color: color-mix(in oklch, var(--program) 60%, transparent);
+  border-top-color: color-mix(in oklch, var(--program) 65%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--program) 55%, transparent),
+    0 -10px 26px -14px color-mix(in oklch, var(--program) 40%, transparent);
 }
-.podium__step[data-place='2'] { padding-top: 1.15rem; }
+.podium__step[data-place='2'] .podium__plinth { --plinth-h: 5rem; }
+.podium__step[data-place='3'] .podium__plinth { --plinth-h: 3.25rem; }
 
-/* The placing. Large, gold on first, quieter below — a judge should be able
-   to read the order off this view in one glance. */
+/* Engraved on the face of the block. */
 .podium__place {
-  /* The placing is what this whole view exists to show, so it is the
-     loudest thing on the step — gold, and larger than the name.
+  /* Gold, and heavier than the name, because the placing is what this view
+     exists to show.
 
-     It has to outrank the avatar badge, which is a solid gold disc holding
-     the CONTESTANT number. Those two numerals sit close together and,
-     unlabelled, the filled badge won the eye: a judge looking at 1st place
-     read the contestant number as the rank. The ordinal suffix from
-     `ordinal()` is the real fix; this weight keeps the ranking primary. */
+     It also has to outrank the avatar badge, which is a solid gold disc
+     holding the CONTESTANT number. Unlabelled the filled badge won the eye:
+     a judge looking at 1st place read the contestant number as the rank. The
+     ordinal suffix from `ordinal()` is the real fix; this weight keeps the
+     ranking primary. */
   color: var(--program);
-  font-size: 1.5rem;
+  font-size: 1.05rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -.01em;
+  letter-spacing: .01em;
   line-height: 1;
 }
-/* The badge is supporting detail here, not a headline. On the sheet it is
-   the only number on the row so it can afford to shout; on a podium step it
-   competes with the placing, so it drops to the size it needs to stay
-   legible and no larger. */
-.podium__step .score-row__badge {
-  min-width: 20px;
-  height: 20px;
-  font-size: .7rem;
-}
-.podium__step[data-place='1'] .podium__place {
-  color: var(--program);
-  font-size: 1.15rem;
-}
+.podium__step[data-place='1'] .podium__place { font-size: 1.35rem; }
 
 .podium__name {
   overflow-wrap: anywhere;
@@ -1524,14 +1591,24 @@ input { font: inherit; }
 }
 .podium__max { color: var(--ink-dim); font-size: .7rem; font-weight: 400; }
 
-/* On a phone three steps side by side leave no room for a name, so they
-   stack into a plain ordered column — placing order, first at the top, which
-   is the honest fallback for a layout that cannot fit. */
+/* On a phone the stage SURVIVES — it just gets shorter and tighter.
+   Stacking the three into a column was the obvious fallback and the wrong
+   one: it throws away the block heights, which are the only thing the podium
+   communicates that the list below already does better. So the blocks shrink
+   in proportion, the type steps down, and long names wrap instead. */
 @media (max-width: 560px) {
-  .podium { grid-template-columns: 1fr; align-items: stretch; }
-  .podium__step,
-  .podium__step[data-place='1'],
-  .podium__step[data-place='2'] { padding-top: .85rem; }
+  .podium__step[data-place='1'] .podium__plinth { --plinth-h: 4.5rem; }
+  .podium__step[data-place='2'] .podium__plinth { --plinth-h: 3.25rem; }
+  .podium__step[data-place='3'] .podium__plinth { --plinth-h: 2.25rem; }
+  .podium__who { padding: 0 .15rem; gap: .1rem; }
+  .podium__name { font-size: .72rem; }
+  .podium__lgu { display: none; }
+  .podium__score { font-size: .95rem; }
+  .podium__place { font-size: .85rem; }
+  .podium__step[data-place='1'] .podium__place { font-size: 1rem; }
+  /* The 64px sheet avatar is too wide for a third of a phone. */
+  .podium__who .score-row__avatar { width: 44px; height: 44px; }
+  .podium__who .score-row__badge { min-width: 17px; height: 17px; font-size: .62rem; }
 }
 
 /**

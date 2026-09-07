@@ -354,33 +354,45 @@ export function JudgeSegment() {
                   data-place={entry.place}
                   key={entry.candidate.id}
                 >
-                  {/* The same avatar as the score sheet, so a photoless
-                      roster degrades identically here — the booth and
-                      festival entries are municipalities and structures, and
-                      `.is-empty` styles that as a deliberate blank. */}
-                  <span
-                    className={`score-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
-                  >
-                    {entry.candidate.photo && (
-                      <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
-                    )}
-                    <span aria-hidden="true" className="score-row__badge">
-                      {entry.candidate.number}
+                  {/* The contestant STANDS ON the block, so they are a
+                      separate element from it: the plinth below owns the
+                      height, this owns the identity. */}
+                  <span className="podium__who">
+                    {/* The same avatar as the score sheet, so a photoless
+                        roster degrades identically here — the booth and
+                        festival entries are municipalities and structures,
+                        and `.is-empty` styles that as a deliberate blank. */}
+                    <span
+                      className={`score-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
+                    >
+                      {entry.candidate.photo && (
+                        <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
+                      )}
+                      <span aria-hidden="true" className="score-row__badge">
+                        {entry.candidate.number}
+                      </span>
+                    </span>
+
+                    <strong className="podium__name">
+                      <span className="sr-only">No. {entry.candidate.number}, </span>
+                      {entry.candidate.name}
+                    </strong>
+                    <span className="podium__lgu">{entry.candidate.lgu}</span>
+                    <span className="podium__score">
+                      {round1(entry.total)}
+                      <span className="podium__max"> / {segment.maxTotal}</span>
                     </span>
                   </span>
 
-                  <span className="podium__place">
-                    {entry.sharedWithPrevious ? '=' : ''}
-                    {ordinal(entry.place)}
-                  </span>
-                  <strong className="podium__name">
-                    <span className="sr-only">No. {entry.candidate.number}, </span>
-                    {entry.candidate.name}
-                  </strong>
-                  <span className="podium__lgu">{entry.candidate.lgu}</span>
-                  <span className="podium__score">
-                    {round1(entry.total)}
-                    <span className="podium__max"> / {segment.maxTotal}</span>
+                  {/* The block itself. Its HEIGHT is the ranking — that is
+                      the one thing a podium communicates that a list cannot,
+                      so the placing is engraved on the face rather than set
+                      above it as a caption. */}
+                  <span className="podium__plinth">
+                    <span className="podium__place">
+                      {entry.sharedWithPrevious ? '=' : ''}
+                      {ordinal(entry.place)}
+                    </span>
                   </span>
                 </li>
               ))}
