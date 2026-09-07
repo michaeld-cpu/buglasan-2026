@@ -36,20 +36,20 @@
  *   they type into.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from '@phosphor-icons/react/dist/icons/ArrowLeft';
-import { CaretDown } from '@phosphor-icons/react/dist/icons/CaretDown';
-import { CaretUp } from '@phosphor-icons/react/dist/icons/CaretUp';
-import { Check } from '@phosphor-icons/react/dist/icons/Check';
-import type { Candidate, Criterion, Segment } from '@judges/scoring';
-import { Shell } from '../components/Shell';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "@phosphor-icons/react/dist/icons/ArrowLeft";
+import { CaretDown } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CaretUp } from "@phosphor-icons/react/dist/icons/CaretUp";
+import { Check } from "@phosphor-icons/react/dist/icons/Check";
+import type { Candidate, Criterion, Segment } from "@judges/scoring";
+import { Shell } from "../components/Shell";
 import {
   assignedSegments,
   canScoreSegment,
   scoreBlockReason,
   useAccount,
-} from '../auth/auth';
+} from "../auth/auth";
 import {
   hasSubmitted,
   saveScores,
@@ -57,23 +57,25 @@ import {
   submitSheet,
   unsubmitSheet,
   usePageantState,
-} from '../store/store';
-import { programMeta } from '../data/programs';
+} from "../store/store";
+import { programMeta } from "../data/programs";
 
 /** A sheet cell key: one candidate, one criterion (or the segment itself). */
 const cellKey = (candidateId: string, criterionKey: string | null) =>
-  `${candidateId}|${criterionKey ?? '_'}`;
+  `${candidateId}|${criterionKey ?? "_"}`;
 
 export function JudgeSegment() {
-  const { slug = '', segmentKey = '' } = useParams();
+  const { slug = "", segmentKey = "" } = useParams();
   const account = useAccount();
   const navigate = useNavigate();
   const meta = programMeta(slug);
 
   const state = usePageantState(slug);
-  const judgeId = account?.judgeId ?? '';
+  const judgeId = account?.judgeId ?? "";
 
-  const assignment = assignedSegments(account, slug).find((a) => a.segment.key === segmentKey);
+  const assignment = assignedSegments(account, slug).find(
+    (a) => a.segment.key === segmentKey,
+  );
   const segment = assignment?.segment;
 
   /* The authorization check, run on every render rather than once on mount.
@@ -92,7 +94,9 @@ export function JudgeSegment() {
    * celebrates. Finishing a segment is worth fireworks; correcting one is
    * housekeeping, and congratulating a judge for fixing a mistake would read
    * as odd. `submitSheet` returns which it was. */
-  const [justSubmitted, setJustSubmitted] = useState<'first' | 'again' | null>(null);
+  const [justSubmitted, setJustSubmitted] = useState<"first" | "again" | null>(
+    null,
+  );
 
   /**
    * Sheet order vs the judge's own ranking.
@@ -106,11 +110,15 @@ export function JudgeSegment() {
    * itself under a judge mid-scoring. Rows are read-only here, so a number
    * cannot be typed into a row that just moved.
    */
-  const [order, setOrder] = useState<'sheet' | 'ranked'>('sheet');
+  const [order, setOrder] = useState<"sheet" | "ranked">("sheet");
 
   const candidates = useMemo(
-    () => state.candidates.filter((c) => c.status === 'ACTIVE').sort((a, b) => a.number - b.number),
-    [state.candidates]);
+    () =>
+      state.candidates
+        .filter((c) => c.status === "ACTIVE")
+        .sort((a, b) => a.number - b.number),
+    [state.candidates],
+  );
 
   /* Local draft, seeded from storage. Kept as strings so a half-typed "1"
      on the way to "10" is not clamped to 1 while the judge is still typing,
@@ -120,7 +128,8 @@ export function JudgeSegment() {
   useEffect(() => {
     const saved = scoresFor(slug, segmentKey, judgeId);
     const next: Record<string, string> = {};
-    for (const row of saved) next[cellKey(row.candidateId, row.criterionKey)] = String(row.value);
+    for (const row of saved)
+      next[cellKey(row.candidateId, row.criterionKey)] = String(row.value);
     setDraft(next);
   }, [slug, segmentKey, judgeId]);
 
@@ -135,23 +144,30 @@ export function JudgeSegment() {
       if (!canScoreSegment(account, slug, segmentKey)) return;
 
       const value = Number(raw);
-      if (raw.trim() === '' || !Number.isFinite(value)) return;
+      if (raw.trim() === "" || !Number.isFinite(value)) return;
 
       const max = maxFor(segment, criterionKey);
       if (value < 0 || value > max) return; // out of range: held locally, flagged, not saved
 
-      saveScores(slug, segmentKey, judgeId, [{ candidateId, criterionKey, value }]);
+      saveScores(slug, segmentKey, judgeId, [
+        { candidateId, criterionKey, value },
+      ]);
     },
-    [account, slug, segmentKey, judgeId, segment]);
+    [account, slug, segmentKey, judgeId, segment],
+  );
 
   if (!segment) {
     return (
       <Shell accent={meta.accent}>
         <div className="empty-state">
           <strong>That segment is not on your sheet.</strong>
-          <p>{blocked ?? 'You are not assigned to this segment.'}</p>
-          <p style={{ marginTop: '1rem' }}>
-            <button className="button" onClick={() => navigate('/judge')} type="button">
+          <p>{blocked ?? "You are not assigned to this segment."}</p>
+          <p style={{ marginTop: "1rem" }}>
+            <button
+              className="button"
+              onClick={() => navigate("/judge")}
+              type="button"
+            >
               <ArrowLeft aria-hidden="true" size={16} /> Back to my segments
             </button>
           </p>
@@ -183,7 +199,9 @@ export function JudgeSegment() {
       if (total === null) unscored.push(c);
       else scored.push({ candidate: c, total });
     }
-    scored.sort((a, b) => b.total - a.total || a.candidate.number - b.candidate.number);
+    scored.sort(
+      (a, b) => b.total - a.total || a.candidate.number - b.candidate.number,
+    );
 
     /* Placings, computed once here rather than per row.
      *
@@ -225,6 +243,11 @@ export function JudgeSegment() {
      shared placings render correctly. */
   const podium = topThree.length === 3 ? topThree : [];
   const rest = ranked.scored.slice(podium.length);
+  /* A suppressed podium needs to say WHY when the reason is not obvious.
+     With one or two candidates scored the absence explains itself; a tie
+     deep enough to overflow three steps does not — it looks like the podium
+     is broken. Only true when there was enough scored to have built one. */
+  const podiumTiedOut = podium.length === 0 && ranked.scored.length >= 3;
   const complete = missing.length === 0;
 
   /* The success screen replaces the sheet rather than overlaying it. A judge
@@ -232,22 +255,22 @@ export function JudgeSegment() {
      to their list, showing the sheet again behind a banner invites them to
      keep editing a sheet they have already sent. */
   if (justSubmitted) {
-    const isFirst = justSubmitted === 'first';
+    const isFirst = justSubmitted === "first";
     return (
       <Shell accent={meta.accent} celebrate={isFirst}>
         <div className="submitted-state frosted">
           <span className="submitted-state__mark" aria-hidden="true">
             <Check size={30} weight="bold" />
           </span>
-          <h1>{isFirst ? 'Sheet submitted' : 'Sheet resubmitted'}</h1>
+          <h1>{isFirst ? "Sheet submitted" : "Sheet resubmitted"}</h1>
           <p className="lede">
             {isFirst
               ? `${segment.name} is in. Your scores are recorded for this seat, and the tabulation head can see them now.`
               : `Your corrections to ${segment.name} are saved. The tabulation head sees the updated scores — the earlier version is replaced.`}
           </p>
           <p className="submitted-state__note">
-            It stays editable until the segment is closed, reopen it if you spot a
-            slip.
+            It stays editable until the segment is closed, reopen it if you spot
+            a slip.
           </p>
           <div className="submitted-state__actions">
             <button
@@ -277,7 +300,11 @@ export function JudgeSegment() {
           needed is gone, the button now reads its own name. The circle is a
           span rather than a nested element with its own semantics, so the
           whole thing stays one button and one tap target. */}
-      <button className="back-button" onClick={() => navigate('/judge')} type="button">
+      <button
+        className="back-button"
+        onClick={() => navigate("/judge")}
+        type="button"
+      >
         <span aria-hidden="true" className="back-button__ring">
           <ArrowLeft size={17} />
         </span>
@@ -288,7 +315,8 @@ export function JudgeSegment() {
         <div className="sheet-head__row">
           <h1>{segment.name}</h1>
           <span className="sheet-progress">
-            <b>{candidates.length - missing.length}</b> / {candidates.length} scored
+            <b>{candidates.length - missing.length}</b> / {candidates.length}{" "}
+            scored
           </span>
 
           {/* One toggle, not a segmented control.
@@ -306,29 +334,31 @@ export function JudgeSegment() {
            * one row or none. */}
           {ranked.scored.length > 1 && (
             <button
-              aria-pressed={order === 'ranked'}
+              aria-pressed={order === "ranked"}
               className="sheet-view"
-              onClick={() => setOrder(order === 'ranked' ? 'sheet' : 'ranked')}
+              onClick={() => setOrder(order === "ranked" ? "sheet" : "ranked")}
               type="button"
             >
-              {order === 'ranked' ? 'Back to sheet' : 'My ranking'}
+              {order === "ranked" ? "Back to sheet" : "My ranking"}
             </button>
           )}
         </div>
-
       </div>
 
-      {blocked && <p className="notice" role="status">{blocked}</p>}
-
-      {submitted && !blocked && (
+      {blocked && (
         <p className="notice" role="status">
-          You submitted this sheet. It stays editable until the tabulation head closes the
-          segment, reopen it below if you need to correct a score.
+          {blocked}
         </p>
       )}
 
+      {submitted && !blocked && (
+        <p className="notice" role="status">
+          You submitted this sheet. It stays editable until the tabulation head
+          closes the segment, reopen it below if you need to correct a score.
+        </p>
+      )}
 
-      {order === 'ranked' ? (
+      {order === "ranked" ? (
         /* REVIEW ONLY. Read-only rows, and deliberately not the scoring
          * surface: a judge types into an unmoving sheet, so the fields are
          * absent here rather than disabled — a field that moved between
@@ -336,16 +366,24 @@ export function JudgeSegment() {
          * to Sheet order to edit. */
         <div className="rank-view">
           {/* THE PODIUM: the judge's top three.
-            *
-            * Only when three or more are scored. With one or two the podium
-            * is a plinth with gaps in it, which reads as missing data rather
-            * than as an early standing — those fall through to the list.
-            *
-            * Ordered 2 - 1 - 3 in the DOM so first place sits in the middle
-            * at the tallest step, the way a real podium is arranged. Reading
-            * order therefore differs from placing order, which is why each
-            * step states its own placing rather than relying on position.
-            */}
+           *
+           * Only when three or more are scored. With one or two the podium
+           * is a plinth with gaps in it, which reads as missing data rather
+           * than as an early standing — those fall through to the list.
+           *
+           * Ordered 2 - 1 - 3 in the DOM so first place sits in the middle
+           * at the tallest step, the way a real podium is arranged. Reading
+           * order therefore differs from placing order, which is why each
+           * step states its own placing rather than relying on position.
+           */}
+          {/* Stated, not silently omitted — see `podiumTiedOut`. */}
+          {podiumTiedOut && (
+            <p className="rank-view__note">
+              Too many candidates share the top scores to show a podium. The
+              full standing is below.
+            </p>
+          )}
+
           {podium.length === 3 && (
             <ol className="podium">
               {[podium[1], podium[0], podium[2]].map((entry) => (
@@ -363,10 +401,15 @@ export function JudgeSegment() {
                         festival entries are municipalities and structures,
                         and `.is-empty` styles that as a deliberate blank. */}
                     <span
-                      className={`score-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
+                      className={`score-row__avatar${entry.candidate.photo ? "" : " is-empty"}`}
                     >
                       {entry.candidate.photo && (
-                        <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
+                        <img
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          src={entry.candidate.photo}
+                        />
                       )}
                       <span aria-hidden="true" className="score-row__badge">
                         {entry.candidate.number}
@@ -374,7 +417,9 @@ export function JudgeSegment() {
                     </span>
 
                     <strong className="podium__name">
-                      <span className="sr-only">No. {entry.candidate.number}, </span>
+                      <span className="sr-only">
+                        No. {entry.candidate.number},{" "}
+                      </span>
                       {entry.candidate.name}
                     </strong>
                     <span className="podium__lgu">{entry.candidate.lgu}</span>
@@ -390,7 +435,7 @@ export function JudgeSegment() {
                       above it as a caption. */}
                   <span className="podium__plinth">
                     <span className="podium__place">
-                      {entry.sharedWithPrevious ? '=' : ''}
+                      {entry.sharedWithPrevious ? "=" : ""}
                       {ordinal(entry.place)}
                     </span>
                   </span>
@@ -400,47 +445,70 @@ export function JudgeSegment() {
           )}
 
           {/* Everyone else, in placing order. When there is no podium this is
-              the whole standing. */}
+              the whole standing.
+
+              Wrapped as its own SECTION with a heading, so the stage above
+              and the standing below read as two different things rather than
+              as one long ranked strip. The heading is omitted when there is
+              no podium, because then this list IS the standing and labelling
+              part of it "the rest" would be wrong. */}
           {rest.length > 0 && (
-            <ol className="rank-list">
-              {rest.map((entry) => (
-                <li className="rank-row frosted" key={entry.candidate.id}>
-                  {/* Ordinal for the same reason as the podium: the avatar
-                      badge beside it holds the CONTESTANT number, and two
-                      bare gold numerals side by side read as one value.
+            <section className="rank-rest">
+              {podium.length === 3 && (
+                <h3 className="rank-rest__head">
+                  <span>Fourth onward</span>
+                </h3>
+              )}
+              <ol className="rank-list">
+                {rest.map((entry) => (
+                  <li className="rank-row frosted" key={entry.candidate.id}>
+                    {/* Ordinal for the same reason as the podium: the avatar
+                        badge beside it holds the CONTESTANT number, and two
+                        bare gold numerals side by side read as one value.
 
-                      Still blank on a tie — a run of equal scores reads as
-                      one group, and repeating "4th" down three rows implies
-                      three separate placings. */}
-                  <span className="rank-row__place">
-                    {entry.sharedWithPrevious ? '' : ordinal(entry.place)}
-                  </span>
-
-                  <span
-                    className={`score-row__avatar rank-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
-                  >
-                    {entry.candidate.photo && (
-                      <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
-                    )}
-                    <span aria-hidden="true" className="score-row__badge">
-                      {entry.candidate.number}
+                        Still blank on a tie — a run of equal scores reads as
+                        one group, and repeating "4th" down three rows implies
+                        three separate placings. */}
+                    <span className="rank-row__place">
+                      {entry.sharedWithPrevious ? "" : ordinal(entry.place)}
                     </span>
-                  </span>
 
-                  <span className="rank-row__name">
-                    <strong>
-                      <span className="sr-only">No. {entry.candidate.number}, </span>
-                      {entry.candidate.name}
-                    </strong>
-                    <span>{entry.candidate.lgu}</span>
-                  </span>
-                  <span className="rank-row__score">
-                    {round1(entry.total)}
-                    <span className="rank-row__max"> / {segment.maxTotal}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
+                    <span
+                      className={`score-row__avatar rank-row__avatar${entry.candidate.photo ? "" : " is-empty"}`}
+                    >
+                      {entry.candidate.photo && (
+                        <img
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          src={entry.candidate.photo}
+                        />
+                      )}
+                      <span aria-hidden="true" className="score-row__badge">
+                        {entry.candidate.number}
+                      </span>
+                    </span>
+
+                    <span className="rank-row__name">
+                      <strong>
+                        <span className="sr-only">
+                          No. {entry.candidate.number},{" "}
+                        </span>
+                        {entry.candidate.name}
+                      </strong>
+                      <span>{entry.candidate.lgu}</span>
+                    </span>
+                    <span className="rank-row__score">
+                      {round1(entry.total)}
+                      <span className="rank-row__max">
+                        {" "}
+                        / {segment.maxTotal}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
 
           {/* Held out of the placings rather than ranked last — a blank is
@@ -448,8 +516,8 @@ export function JudgeSegment() {
               outstanding without leaving this view. */}
           {ranked.unscored.length > 0 && (
             <p className="rank-list__pending">
-              Not yet scored:{' '}
-              <b>{ranked.unscored.map((c) => c.number).join(', ')}</b>
+              Not yet scored:{" "}
+              <b>{ranked.unscored.map((c) => c.number).join(", ")}</b>
             </p>
           )}
         </div>
@@ -474,7 +542,7 @@ export function JudgeSegment() {
         complete={complete}
         judgeId={judgeId}
         missing={missing}
-        onSubmitted={(isFirst) => setJustSubmitted(isFirst ? 'first' : 'again')}
+        onSubmitted={(isFirst) => setJustSubmitted(isFirst ? "first" : "again")}
         readOnly={!writable}
         segment={segment}
         segmentKey={segmentKey}
@@ -496,32 +564,46 @@ export function JudgeSegment() {
  * criteria shown above as guidance, that is the literal reading of the Hara
  * rulebook. The other two modes give one cell per criterion.
  */
-function sheetCells(segment: Segment | undefined): Array<{ key: string | null; label: string; max: number }> {
+function sheetCells(
+  segment: Segment | undefined,
+): Array<{ key: string | null; label: string; max: number }> {
   if (!segment) return [];
-  if (segment.inputMode === 'SEGMENT_SINGLE') {
-    return [{ key: null, label: 'Score', max: segment.maxTotal }];
+  if (segment.inputMode === "SEGMENT_SINGLE") {
+    return [{ key: null, label: "Score", max: segment.maxTotal }];
   }
-  return segment.criteria.map((c: Criterion) => ({ key: c.key, label: c.name, max: c.maxScore }));
+  return segment.criteria.map((c: Criterion) => ({
+    key: c.key,
+    label: c.name,
+    max: c.maxScore,
+  }));
 }
 
-function maxFor(segment: Segment | undefined, criterionKey: string | null): number {
+function maxFor(
+  segment: Segment | undefined,
+  criterionKey: string | null,
+): number {
   if (!segment) return 0;
   if (criterionKey === null) return segment.maxTotal;
-  return segment.criteria.find((c) => c.key === criterionKey)?.maxScore ?? segment.maxTotal;
+  return (
+    segment.criteria.find((c) => c.key === criterionKey)?.maxScore ??
+    segment.maxTotal
+  );
 }
 
 /** Candidates with at least one blank or out-of-range cell. */
 function missingRows(
   candidates: Candidate[],
   cells: Array<{ key: string | null; max: number }>,
-  draft: Record<string, string>): Candidate[] {
+  draft: Record<string, string>,
+): Candidate[] {
   return candidates.filter((c) =>
     cells.some((cell) => {
       const raw = draft[cellKey(c.id, cell.key)];
-      if (raw === undefined || raw.trim() === '') return true;
+      if (raw === undefined || raw.trim() === "") return true;
       const v = Number(raw);
       return !Number.isFinite(v) || v < 0 || v > cell.max;
-    }));
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -541,7 +623,11 @@ function ScoreRow({
   segment: Segment;
   cells: Array<{ key: string | null; label: string; max: number }>;
   draft: Record<string, string>;
-  onCommit: (candidateId: string, criterionKey: string | null, raw: string) => void;
+  onCommit: (
+    candidateId: string,
+    criterionKey: string | null,
+    raw: string,
+  ) => void;
   readOnly: boolean;
   /** Row position, feeding the list's staggered entrance (`--i`). */
   index: number;
@@ -561,8 +647,8 @@ function ScoreRow({
 
   return (
     <div
-      className={`score-row frosted${anyBlank ? '' : ' score-row--done'}`}
-      style={{ ['--i' as string]: index }}
+      className={`score-row frosted${anyBlank ? "" : " score-row--done"}`}
+      style={{ ["--i" as string]: index }}
     >
       <div className="score-row__head">
         {/* Photo with the entry number as a corner badge.
@@ -588,9 +674,16 @@ function ScoreRow({
          * `alt=""` and `aria-hidden` throughout: the name that follows already
          * announces "No. 7, Althea Marie Bacong", so labelling these would
          * repeat the same entry two more times. */}
-        <span className={`score-row__avatar${candidate.photo ? '' : ' is-empty'}`}>
+        <span
+          className={`score-row__avatar${candidate.photo ? "" : " is-empty"}`}
+        >
           {candidate.photo && (
-            <img alt="" aria-hidden="true" loading="lazy" src={candidate.photo} />
+            <img
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              src={candidate.photo}
+            />
           )}
           <span aria-hidden="true" className="score-row__badge">
             {candidate.number}
@@ -617,15 +710,19 @@ function ScoreRow({
           layout needs an explicit column count — see the note on
           `.criteria-grid` — because `auto-fill` has no definite width to
           divide inside a shrink-to-fit flex item. */}
-      <div className="criteria-grid" style={{ ['--cells' as string]: cells.length }}>
+      <div
+        className="criteria-grid"
+        style={{ ["--cells" as string]: cells.length }}
+      >
         {cells.map((cell) => {
-          const raw = draft[cellKey(candidate.id, cell.key)] ?? '';
+          const raw = draft[cellKey(candidate.id, cell.key)] ?? "";
           const v = Number(raw);
-          const invalid = raw.trim() !== '' && (!Number.isFinite(v) || v < 0 || v > cell.max);
-          const id = `s-${candidate.id}-${cell.key ?? 'single'}`;
+          const invalid =
+            raw.trim() !== "" && (!Number.isFinite(v) || v < 0 || v > cell.max);
+          const id = `s-${candidate.id}-${cell.key ?? "single"}`;
 
           return (
-            <div className="criterion" key={cell.key ?? 'single'}>
+            <div className="criterion" key={cell.key ?? "single"}>
               {/* The visible label is gone — the max now lives inside the
                   field as ghost text, so a criterion is its box and nothing
                   else. Kept for screen readers, which have no placeholder to
@@ -637,50 +734,52 @@ function ScoreRow({
                   criterion, so they stay centred on the field no matter how
                   many lines the label above wraps to. */}
               <span className="criterion__field">
-              <input
-                aria-invalid={invalid ? 'true' : undefined}
-                disabled={readOnly}
-                id={id}
-                /* `decimal` rather than `numeric`: half-points are legal on
+                <input
+                  aria-invalid={invalid ? "true" : undefined}
+                  disabled={readOnly}
+                  id={id}
+                  /* `decimal` rather than `numeric`: half-points are legal on
                    several segments and a keypad without a decimal key makes
                    them unenterable. */
-                inputMode="decimal"
-                max={cell.max}
-                min={0}
-                onChange={(e) => onCommit(candidate.id, cell.key, e.target.value)}
-                /* Scrolling must never change a score.
-                 *
-                 * A focused `type=number` input treats wheel and two-finger
-                 * trackpad scroll as increment/decrement, so a judge scrolling
-                 * the sheet past the field they just typed into silently edits
-                 * it, and the store commits on change, so the wrong number is
-                 * saved without anyone touching a key. That is the single most
-                 * damaging input bug this screen could have.
-                 *
-                 * Blurring rather than `preventDefault` because React attaches
-                 * `onWheel` passively and cannot cancel the event; dropping
-                 * focus removes the target the browser would have stepped.
-                 * The page keeps scrolling normally, which is what the judge
-                 * actually asked for by scrolling. */
-                onWheel={(e) => e.currentTarget.blur()}
-                type="number"
-                value={raw}
-              />
+                  inputMode="decimal"
+                  max={cell.max}
+                  min={0}
+                  onChange={(e) =>
+                    onCommit(candidate.id, cell.key, e.target.value)
+                  }
+                  /* Scrolling must never change a score.
+                   *
+                   * A focused `type=number` input treats wheel and two-finger
+                   * trackpad scroll as increment/decrement, so a judge scrolling
+                   * the sheet past the field they just typed into silently edits
+                   * it, and the store commits on change, so the wrong number is
+                   * saved without anyone touching a key. That is the single most
+                   * damaging input bug this screen could have.
+                   *
+                   * Blurring rather than `preventDefault` because React attaches
+                   * `onWheel` passively and cannot cancel the event; dropping
+                   * focus removes the target the browser would have stepped.
+                   * The page keeps scrolling normally, which is what the judge
+                   * actually asked for by scrolling. */
+                  onWheel={(e) => e.currentTarget.blur()}
+                  type="number"
+                  value={raw}
+                />
 
-              {/* The max, INSIDE the field and always visible.
-                *
-                * This was the input's `placeholder`, which meant it vanished
-                * the moment a judge typed — so the one time the ceiling is
-                * worth checking against, "is 8 out of 10 or out of 35?", it
-                * was gone. A real element persists.
-                *
-                * `aria-hidden`: the `.sr-only` label already says "out of 10",
-                * so announcing this would repeat it on every field. */}
-              <span aria-hidden="true" className="criterion__max">
-                / {cell.max}
-              </span>
+                {/* The max, INSIDE the field and always visible.
+                 *
+                 * This was the input's `placeholder`, which meant it vanished
+                 * the moment a judge typed — so the one time the ceiling is
+                 * worth checking against, "is 8 out of 10 or out of 35?", it
+                 * was gone. A real element persists.
+                 *
+                 * `aria-hidden`: the `.sr-only` label already says "out of 10",
+                 * so announcing this would repeat it on every field. */}
+                <span aria-hidden="true" className="criterion__max">
+                  / {cell.max}
+                </span>
 
-              {/* Brand steppers, replacing the grey native spinners the CSS
+                {/* Brand steppers, replacing the grey native spinners the CSS
                   above now suppresses.
 
                   `tabIndex={-1}` and `aria-hidden`: a keyboard user already
@@ -691,34 +790,40 @@ function ScoreRow({
                   Clamped and rounded to one decimal — `step` on a bare
                   `type=number` would let a judge hold the button past
                   `cell.max` and commit an out-of-range score. */}
-              {!readOnly && (
-                <span aria-hidden="true" className="criterion__step">
-                  <button
-                    className="criterion__step-btn"
-                    disabled={v >= cell.max}
-                    onClick={() => {
-                      const next = Math.min(cell.max, Math.round(((v || 0) + 1) * 10) / 10);
-                      onCommit(candidate.id, cell.key, String(next));
-                    }}
-                    tabIndex={-1}
-                    type="button"
-                  >
-                    <CaretUp size={11} weight="bold" />
-                  </button>
-                  <button
-                    className="criterion__step-btn"
-                    disabled={raw.trim() === '' || v <= 0}
-                    onClick={() => {
-                      const next = Math.max(0, Math.round(((v || 0) - 1) * 10) / 10);
-                      onCommit(candidate.id, cell.key, String(next));
-                    }}
-                    tabIndex={-1}
-                    type="button"
-                  >
-                    <CaretDown size={11} weight="bold" />
-                  </button>
-                </span>
-              )}
+                {!readOnly && (
+                  <span aria-hidden="true" className="criterion__step">
+                    <button
+                      className="criterion__step-btn"
+                      disabled={v >= cell.max}
+                      onClick={() => {
+                        const next = Math.min(
+                          cell.max,
+                          Math.round(((v || 0) + 1) * 10) / 10,
+                        );
+                        onCommit(candidate.id, cell.key, String(next));
+                      }}
+                      tabIndex={-1}
+                      type="button"
+                    >
+                      <CaretUp size={11} weight="bold" />
+                    </button>
+                    <button
+                      className="criterion__step-btn"
+                      disabled={raw.trim() === "" || v <= 0}
+                      onClick={() => {
+                        const next = Math.max(
+                          0,
+                          Math.round(((v || 0) - 1) * 10) / 10,
+                        );
+                        onCommit(candidate.id, cell.key, String(next));
+                      }}
+                      tabIndex={-1}
+                      type="button"
+                    >
+                      <CaretDown size={11} weight="bold" />
+                    </button>
+                  </span>
+                )}
               </span>
 
               {invalid && (
@@ -740,7 +845,7 @@ function ScoreRow({
        * so it stays. */}
       {cells.length > 1 && (
         <span className="score-row__total">
-          <b>{total === null ? '—' : round1(total)}</b>
+          <b>{total === null ? "—" : round1(total)}</b>
           <span>of {segment.maxTotal}</span>
         </span>
       )}
@@ -782,17 +887,21 @@ function SubmitBar({
                sat beside a "Reopen to edit" button, so the bar contradicted
                itself: the line said the sheet still needed sending while the
                button said it had been sent. This states what is now true. */
-            <span className="autosave">Sheet submitted to the tabulation head</span>
+            <span className="autosave">
+              Sheet submitted to the tabulation head
+            </span>
           ) : complete ? (
             /* Names both facts deliberately. "All scores saved on this device"
                stated only the first and sat beside a "Review & submit" button,
                so a judge could reasonably read a complete sheet as a finished
                one and leave the table without submitting. The second clause is
                the whole point of the line. */
-            <span className="autosave">All scores recorded · awaiting submission</span>
+            <span className="autosave">
+              All scores recorded · awaiting submission
+            </span>
           ) : (
             <>
-              Still to score: <b>{missing.map((c) => c.number).join(', ')}</b>
+              Still to score: <b>{missing.map((c) => c.number).join(", ")}</b>
             </>
           )}
         </span>
@@ -858,11 +967,14 @@ function ReviewDialog({
 
   const byCandidate = new Map<string, number>();
   for (const row of saved) {
-    byCandidate.set(row.candidateId, (byCandidate.get(row.candidateId) ?? 0) + row.value);
+    byCandidate.set(
+      row.candidateId,
+      (byCandidate.get(row.candidateId) ?? 0) + row.value,
+    );
   }
 
   const candidates = state.candidates
-    .filter((c) => c.status === 'ACTIVE')
+    .filter((c) => c.status === "ACTIVE")
     .sort((a, b) => a.number - b.number);
 
   /* Lock the page while this dialog is up.
@@ -883,13 +995,13 @@ function ReviewDialog({
        platforms; ~15px with classic scrollbars. Only consumed by the Safari
        fallback in `body.is-dialog-open` — see the `@supports` note there. */
     const barWidth = window.innerWidth - document.documentElement.clientWidth;
-    body.style.setProperty('--scrollbar-w', `${barWidth}px`);
-    body.classList.add('is-dialog-open');
+    body.style.setProperty("--scrollbar-w", `${barWidth}px`);
+    body.classList.add("is-dialog-open");
     body.style.top = `-${y}px`;
     return () => {
-      body.classList.remove('is-dialog-open');
-      body.style.top = '';
-      body.style.removeProperty('--scrollbar-w');
+      body.classList.remove("is-dialog-open");
+      body.style.top = "";
+      body.style.removeProperty("--scrollbar-w");
       window.scrollTo(0, y);
     };
   }, []);
@@ -905,7 +1017,8 @@ function ReviewDialog({
       <div className="modal frosted" onClick={(e) => e.stopPropagation()}>
         <h2 id="review-title">Submit your sheet</h2>
         <p className="lede">
-          Read back from this device’s saved scores. Check the totals, then submit.
+          Read back from this device’s saved scores. Check the totals, then
+          submit.
         </p>
 
         <div className="review-list">
@@ -913,14 +1026,14 @@ function ReviewDialog({
             const total = byCandidate.get(c.id);
             return (
               <div
-                className={`review-row${total === undefined ? ' review-row--missing' : ''}`}
+                className={`review-row${total === undefined ? " review-row--missing" : ""}`}
                 key={c.id}
               >
                 <span className="review-row__num">{c.number}</span>
                 <span className="review-row__name">{c.name}</span>
                 <span className="review-row__score">
                   {total === undefined ? (
-                    'not saved'
+                    "not saved"
                   ) : (
                     <>
                       {round1(total)}
@@ -928,7 +1041,10 @@ function ReviewDialog({
                           rank or a count. Dimmer than the score itself, the
                           number a judge is checking is the one they entered,
                           and the max is the context around it. */}
-                      <span className="review-row__max"> / {segment.maxTotal}</span>
+                      <span className="review-row__max">
+                        {" "}
+                        / {segment.maxTotal}
+                      </span>
                     </>
                   )}
                 </span>
@@ -938,7 +1054,11 @@ function ReviewDialog({
         </div>
 
         <div className="modal__actions">
-          <button className="button button--ghost" onClick={onClose} type="button">
+          <button
+            className="button button--ghost"
+            onClick={onClose}
+            type="button"
+          >
             Keep editing
           </button>
           <button
@@ -973,19 +1093,20 @@ function candidateTotal(
   segment: Segment,
   cells: Array<{ key: string | null; max: number }>,
   draft: Record<string, string>,
-  candidateId: string): number | null {
+  candidateId: string,
+): number | null {
   const values = cells.map((cell) => {
     const raw = draft[cellKey(candidateId, cell.key)];
     /* `Number('')` is 0, not NaN, so a cleared cell has to be caught before
        it is coerced. */
-    return raw === undefined || raw.trim() === '' ? NaN : Number(raw);
+    return raw === undefined || raw.trim() === "" ? NaN : Number(raw);
   });
   if (values.some((v) => !Number.isFinite(v))) return null;
   /* Out of range counts as unscored here too: the store refuses to save it,
      so ranking on it would order the sheet by a number nobody holds. */
   if (values.some((v, i) => v < 0 || v > cells[i].max)) return null;
 
-  return segment.inputMode === 'CRITERIA_MEAN'
+  return segment.inputMode === "CRITERIA_MEAN"
     ? weightedMean(segment, cells, values)
     : values.reduce((a, b) => a + b, 0);
 }
@@ -993,7 +1114,8 @@ function candidateTotal(
 function weightedMean(
   segment: Segment,
   cells: Array<{ key: string | null }>,
-  values: number[]): number {
+  values: number[],
+): number {
   let num = 0;
   let den = 0;
   cells.forEach((cell, i) => {

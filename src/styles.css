@@ -1419,7 +1419,22 @@ input { font: inherit; }
   color: var(--program);
 }
 
-.rank-view { display: grid; gap: 1.1rem; }
+/* The two sections are deliberately far apart: the stage is a composition,
+   the standing below it is a table. 1.1rem read as one continuous strip. */
+.rank-view { display: grid; gap: 1.6rem; }
+
+/* Why a podium is absent when the scores are too tied to build one. Stated
+   rather than left as a silent gap, which reads as a broken feature. */
+.rank-view__note {
+  margin: 0;
+  padding: .6rem .85rem;
+  border-radius: var(--radius-md);
+  border-left: 2px solid color-mix(in oklch, var(--program) 55%, transparent);
+  background: color-mix(in oklch, var(--surface-2) 30%, transparent);
+  color: var(--ink-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
 
 /**
  * The podium: the judge's top three.
@@ -1450,10 +1465,22 @@ input { font: inherit; }
   /* Room for the floor rule below, so the blocks rest ON something. Without
      it the three blocks simply stop in mid-air and read as clipped rather
      than as standing on a stage. */
-  margin: 0 0 .55rem;
-  padding: 0 0 .5rem;
+  margin: 0;
+  padding: 1.4rem .6rem .5rem;
   list-style: none;
   position: relative;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  /* A stage LIT FROM ABOVE. This is what separates the podium from the list
+     below it: the top three stand in a pool of light, everyone else is in a
+     plain list. The glow is centred on the winner because that is where the
+     eye goes first. */
+  background:
+    radial-gradient(
+      120% 82% at 50% 4%,
+      color-mix(in oklch, var(--program) 9%, transparent) 0%,
+      color-mix(in oklch, var(--program) 4%, transparent) 38%,
+      transparent 78%
+    );
   border-bottom: 1px solid color-mix(in oklch, var(--ink) 14%, transparent);
 }
 /* The floor: a short gold wash directly under the winner's block, brightest
@@ -1609,6 +1636,13 @@ input { font: inherit; }
   /* The 64px sheet avatar is too wide for a third of a phone. */
   .podium__who .score-row__avatar { width: 44px; height: 44px; }
   .podium__who .score-row__badge { min-width: 17px; height: 17px; font-size: .62rem; }
+
+  /* The list rows tighten too, so a long name ("Ivy Rochelle Manaban") keeps
+     to one line and the score stays level with it. */
+  .rank-row { gap: .6rem; padding: .55rem .7rem; }
+  .rank-row__name strong { font-size: .85rem; }
+  .rank-row__place { min-width: 2.1rem; font-size: .88rem; }
+  .rank-row__avatar { width: 34px; height: 34px; }
 }
 
 /**
@@ -1619,6 +1653,39 @@ input { font: inherit; }
  * answer "who is on top, who is at the bottom" rather than worked through row
  * by row.
  */
+/* ── Everyone from fourth onward ────────────────────────────────────────
+ *
+ * A separate section from the stage, and deliberately a quieter one. The
+ * podium is a composition; this is a table you scan. Same data, lower
+ * register: no lit ground, a flatter surface on the rows, and a small
+ * ruled heading to mark where the stage ends.
+ */
+.rank-rest { display: grid; gap: .55rem; }
+
+.rank-rest__head {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+/* The rule runs to the end of the row, so the heading reads as a section
+   divide rather than as a floating caption. */
+.rank-rest__head::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--ink) 12%, transparent),
+    transparent
+  );
+}
+
 .rank-list {
   display: grid;
   gap: .5rem;
@@ -1634,16 +1701,21 @@ input { font: inherit; }
   min-width: 0;
   padding: .6rem .9rem;
   border-radius: var(--radius-md);
-  --frost-tint: 1.8;
+  /* Flatter than the score sheet's 2.1 and the podium's blocks. These rows
+     are the bottom of the hierarchy in this view: read, not worked on. */
+  --frost-tint: 1.25;
 }
 
 /* The placing. Blank on a tie's second and subsequent rows, which is what
    makes a shared placing legible without repeating the number. */
 .rank-row__place {
   flex: 0 0 auto;
-  min-width: 1.6rem;
-  color: var(--program);
-  font-size: 1.1rem;
+  /* Fits "10th"-"14th" without the column jumping between rows. */
+  min-width: 2.4rem;
+  /* Muted gold, not the podium's full `--program`: a 7th place should not
+     compete with the winner's engraved plinth two sections above. */
+  color: color-mix(in oklch, var(--program) 72%, var(--ink-dim));
+  font-size: .95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: center;
