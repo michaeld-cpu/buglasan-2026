@@ -1479,27 +1479,12 @@ input { font: inherit; }
   /* Sits under a photo with transparency. `.is-empty` overrides it for
      entries that have no photograph at all. */
   background: color-mix(in oklch, var(--program) 20%, var(--surface-2));
-  /* Four stacked layers, innermost first:
-   *
-   *   1. A hairline gap in the card's own surface, so the ring reads as a
-   *      ring rather than as a gold edge painted on the photograph.
-   *   2. The gold ring itself.
-   *   3. + 4. A gold GLOW spreading outward from the ring.
-   *
-   * The glow is what separates the portrait from the card. Both are dark
-   * green at close values, so the avatar's edge was dissolving into the row
-   * behind it; a light source at the rim gives the circle a definite
-   * boundary without adding a heavier border, which would have eaten into
-   * the 64px photo.
-   *
-   * Two radii rather than one: a tight bright halo for the edge itself, then
-   * a wide faint one for the ambient lift. A single blur at either radius
-   * reads as a smudge — the near layer is what makes it look lit. */
+  /* Two shadows: a hairline gap in the card's own surface, then the gold.
+     That gap is what makes the ring read as a ring rather than as a gold edge
+     on the photo, which matters most when a portrait's own border is light. */
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent),
-    0 0 10px color-mix(in oklch, var(--program) 42%, transparent),
-    0 0 24px color-mix(in oklch, var(--program) 22%, transparent);
+    0 0 0 3.5px color-mix(in oklch, var(--program) 78%, transparent);
 }
 .score-row__avatar img {
   width: 100%;
@@ -1513,16 +1498,11 @@ input { font: inherit; }
   object-position: 50% 22%;
   display: block;
 }
-/* No photograph: a dimmer ring and a dimmer glow to match, so an empty slot
-   reads as a deliberate blank rather than as a portrait that failed to
-   load. The booth and contingent rosters have no photography at all. */
 .score-row__avatar.is-empty {
   background: var(--surface-2);
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent),
-    0 0 10px color-mix(in oklch, var(--program) 18%, transparent),
-    0 0 24px color-mix(in oklch, var(--program) 10%, transparent);
+    0 0 0 3.5px color-mix(in oklch, var(--program) 34%, transparent);
 }
 
 /**
@@ -1560,9 +1540,25 @@ input { font: inherit; }
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  /* The cut-out ring. `box-shadow` not `border`, so it does not change the
-     badge's own size. */
-  box-shadow: 0 0 0 2px var(--surface);
+  /* Three layers, innermost first:
+   *
+   *   1. The cut-out ring — `box-shadow` not `border`, so it does not change
+   *      the badge's own size.
+   *   2. + 3. A gold GLOW spreading out from the badge.
+   *
+   * The glow is what separates the number from the portrait behind it. The
+   * badge sits half over the photograph and half over the card, so its edge
+   * had nothing consistent to read against: light on a pale gown, invisible
+   * against a dark background. Light coming off the badge gives it the same
+   * boundary either way.
+   *
+   * Two radii rather than one: a tight bright halo for the edge itself, then
+   * a wide faint one for the ambient lift. A single blur at either radius
+   * reads as a smudge; the near layer is what makes it look lit. */
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 8px color-mix(in oklch, var(--program) 55%, transparent),
+    0 0 18px color-mix(in oklch, var(--program) 30%, transparent);
 }
 
 .score-row__who { flex: 1; min-width: 0; }
