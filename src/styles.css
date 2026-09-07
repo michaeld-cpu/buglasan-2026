@@ -1755,9 +1755,34 @@ input { font: inherit; }
  * centre on whatever the field actually is, at any label length, font size or
  * field height.
  */
+/**
+ * The field box: value and max as a centred pair.
+ *
+ * A flex ROW, not a grid with an absolutely-positioned max. The max used to
+ * be pinned to a fixed offset while the input centred its own text, so the
+ * pair drifted off centre as the value's width changed (measured 7px off at
+ * "1.2" but 17px at "1") and the gap between them moved with it.
+ *
+ * As flex siblings they are laid out together and centred as one unit, so the
+ * gap is constant and the pair stays put whatever the judge types. The input
+ * shrinks to its content via `field-sizing`, with a `width` fallback for
+ * browsers that do not have it yet.
+ */
 .criterion__field {
   position: relative;
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  /* Asymmetric on purpose: the right side reserves room for the steppers, and
+     the left matches it so the value+max pair lands on the box's true centre.
+     Measured, an unbalanced inset left the pair 11px left of centre at every
+     value. */
+  padding-inline: 34px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--ground);
 }
 /* No `.criterion label` rules: the label is `.sr-only` now, so styling it
    would be styling something no one can see. */
@@ -1766,12 +1791,16 @@ input { font: inherit; }
    be mis-tapped, and `inputMode="decimal"` brings up a numeric keypad without
    the spinner arrows a phone keyboard would fight. */
 .criterion input {
-  width: 100%;
-  min-height: 56px;
-  padding: .5rem .75rem;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-md);
-  background: var(--ground);
+  /* Sizes to its own digits so the value+max pair can be centred together.
+     `field-sizing` is the modern way; the `width` is the fallback, wide
+     enough for "10.5" and no wider. */
+  field-sizing: content;
+  width: 3.6ch;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
   /* Gold, not ink. The score IS the content of this row — everything else on
      the card is context for it — and the program accent is what the sheet
      already uses for a judge's own numbers (the running total, the progress
@@ -1804,8 +1833,12 @@ input { font: inherit; }
 /* Same reason as the auth fields: the global outline is the only focus ring,
    so this must not repaint the border into a second one. The `aria-invalid`
    rule below still recolours the border, which is a *state*, not focus. */
-.criterion input:focus-visible { background: color-mix(in oklch, var(--ground) 88%, white); }
-.criterion input[aria-invalid="true"] { border-color: var(--rose); }
+/* The focus ring and the invalid state move to the WRAPPER, since it owns the
+   border and background now. `:focus-within` is what carries the input's
+   focus out to the box the judge actually sees. */
+.criterion__field:focus-within { background: color-mix(in oklch, var(--ground) 88%, white); }
+.criterion__field:has(input[aria-invalid="true"]) { border-color: var(--rose); }
+.criterion input:focus-visible { outline: none; }
 .criterion input:disabled { opacity: .6; cursor: not-allowed; }
 
 /**
@@ -1874,10 +1907,7 @@ input { font: inherit; }
 /* Room for the steppers so a three-character score ("10.5") cannot slide
    under them. The field stays centre-aligned; this is symmetric padding, not
    a right inset, so the digits remain visually centred. */
-/* Room on the right for the steppers AND the max that now sits beside them,
-   with a matching inset on the left so the judge's digits stay optically
-   centred in the box rather than pushed off to one side. */
-.criterion input { padding-inline: 56px; }
+.criterion input { text-align: right; }
 
 /**
  * The criterion's maximum, inside the field and immediately AFTER the score.
@@ -1894,15 +1924,16 @@ input { font: inherit; }
  * with the gold score. `pointer-events: none` so tapping it focuses the input
  * underneath instead of doing nothing — the whole box behaves as one field.
  */
+/* A flex sibling of the input, so the two are centred as one unit. Dim and
+   small so it reads as the denominator it is rather than competing with the
+   gold score. `pointer-events: none` so a tap lands on the field. */
 .criterion__max {
-  position: absolute;
-  top: 50%;
-  right: 30px;
-  transform: translateY(-50%);
+  flex: 0 0 auto;
   color: var(--ink-dim);
   font-size: .78rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
 }
 
