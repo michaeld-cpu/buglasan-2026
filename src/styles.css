@@ -1562,11 +1562,19 @@ input { font: inherit; }
      corner; the clipper trims the overhang. */
   left: -30%;
   right: -30%;
-  /* Low on the portrait: these headshots crop at `object-position: 50% 22%`,
-     so the lower third is shoulders and the upper two thirds are the face a
-     judge is trying to match. The strap stays in the shoulder band. */
-  bottom: 14%;
-  height: 18%;
+  /* Low on the portrait, and aligned to the number circle.
+   *
+   * These headshots crop at `object-position: 50% 22%`, so the face occupies
+   * the upper two thirds and the strap belongs in the shoulder band below it.
+   *
+   * The exact offset comes from the badge, not from taste: the badge is 24px
+   * tall at `bottom: -2px` on a 64px avatar, so its centre sits 54px down
+   * (84%). At `bottom: 8%` with a 16% height the band's centre lands at 52.8px
+   * (83%) — within about a pixel — so the strap runs through the rosette
+   * rather than passing above it. If the avatar or badge size changes, redo
+   * that arithmetic. */
+  bottom: 8%;
+  height: 16%;
   background: linear-gradient(
     to bottom,
     color-mix(in oklch, var(--frame-lo) 85%, transparent) 0%,
