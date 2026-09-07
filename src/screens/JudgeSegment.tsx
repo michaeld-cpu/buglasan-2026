@@ -408,11 +408,6 @@ function ScoreRow({
                 inputMode="decimal"
                 max={cell.max}
                 min={0}
-                /* The max as ghost text, replacing the label above the box.
-                   It disappears the moment a judge types, which is the point:
-                   the ceiling matters while the field is empty and stops
-                   mattering once there is a number to read. */
-                placeholder={`/ ${cell.max}`}
                 onChange={(e) => onCommit(candidate.id, cell.key, e.target.value)}
                 /* Scrolling must never change a score.
                  *
@@ -432,6 +427,19 @@ function ScoreRow({
                 type="number"
                 value={raw}
               />
+
+              {/* The max, INSIDE the field and always visible.
+                *
+                * This was the input's `placeholder`, which meant it vanished
+                * the moment a judge typed — so the one time the ceiling is
+                * worth checking against, "is 8 out of 10 or out of 35?", it
+                * was gone. A real element persists.
+                *
+                * `aria-hidden`: the `.sr-only` label already says "out of 10",
+                * so announcing this would repeat it on every field. */}
+              <span aria-hidden="true" className="criterion__max">
+                / {cell.max}
+              </span>
 
               {/* Brand steppers, replacing the grey native spinners the CSS
                   above now suppresses.

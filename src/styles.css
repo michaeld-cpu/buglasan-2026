@@ -1804,16 +1804,6 @@ input { font: inherit; }
 /* Same reason as the auth fields: the global outline is the only focus ring,
    so this must not repaint the border into a second one. The `aria-invalid`
    rule below still recolours the border, which is a *state*, not focus. */
-/* The max, as ghost text inside the empty field. Dim and lighter than the
-   value it will be replaced by, so an unscored field reads as a prompt rather
-   than as a score of "/ 10". */
-.criterion input::placeholder {
-  color: var(--ink-dim);
-  font-size: .95rem;
-  font-weight: 400;
-  opacity: 1;
-}
-
 .criterion input:focus-visible { background: color-mix(in oklch, var(--ground) 88%, white); }
 .criterion input[aria-invalid="true"] { border-color: var(--rose); }
 .criterion input:disabled { opacity: .6; cursor: not-allowed; }
@@ -1884,7 +1874,36 @@ input { font: inherit; }
 /* Room for the steppers so a three-character score ("10.5") cannot slide
    under them. The field stays centre-aligned; this is symmetric padding, not
    a right inset, so the digits remain visually centred. */
-.criterion input { padding-inline: 28px; }
+/* Room for the steppers on the right and the max on the left, so a
+   three-character score ("10.5") cannot slide under either. Symmetric, so the
+   digits stay optically centred in the box. */
+.criterion input { padding-inline: 34px 28px; }
+
+/**
+ * The criterion's maximum, inside the field.
+ *
+ * Left edge, opposite the steppers, with the judge's own value centred
+ * between them. Dim and small so it reads as the denominator it is rather
+ * than competing with the gold score.
+ *
+ * `pointer-events: none` so tapping it focuses the input underneath instead
+ * of doing nothing — the whole box should behave like one field.
+ */
+.criterion__max {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  color: var(--ink-dim);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Dimmer still when the field is not editable, matching the input's own
+   disabled treatment. */
+.criterion input:disabled ~ .criterion__max { opacity: .6; }
 
 .criterion__error { color: var(--rose); font-size: .74rem; }
 
