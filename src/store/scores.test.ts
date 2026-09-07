@@ -101,31 +101,38 @@ describe('submitSheet — first vs resubmission', () => {
   });
 });
 
-describe('integers only', () => {
+describe('decimal scores', () => {
   beforeEach(() => {
     window.localStorage.clear();
     resetPageant(SLUG);
   });
 
-  it('stores whole-number scores', () => {
+  /* Half-points are legal on several segments — the rulebook allows them —
+     so the store has to round-trip them exactly. This was briefly broken by
+     an integers-only guard added for a button-pad UI that has since been
+     reverted; the test stays so the guard cannot come back by accident. */
+  it('round-trips half-points without rounding them', () => {
     saveScores(SLUG, 'aquatic', 'judge-1', [
-      { candidateId: 'cand-a', criterionKey: null, value: 7 },
+      { candidateId: 'cand-a', criterionKey: null, value: 7.5 },
+      { candidateId: 'cand-b', criterionKey: null, value: 9.5 },
     ]);
-    expect(scoresFor(SLUG, 'aquatic', 'judge-1')[0].value).toBe(7);
+    const byCandidate = new Map(
+      scoresFor(SLUG, 'aquatic', 'judge-1').map((r) => [r.candidateId, r.value]),
+    );
+    expect(byCandidate.get('cand-a')).toBe(7.5);
+    expect(byCandidate.get('cand-b')).toBe(9.5);
   });
 
-  it('round-trips every value the pad can produce, 1..max', () => {
-    const max = 10;
-    for (let n = 1; n <= max; n++) {
+  it('keeps one-decimal precision across the range', () => {
+    const values = [0.5, 1.5, 4.5, 8.5, 9.9];
+    values.forEach((v, i) =>
       saveScores(SLUG, 'aquatic', 'judge-1', [
-        { candidateId: `c-${n}`, criterionKey: null, value: n },
-      ]);
-    }
-    const rows = scoresFor(SLUG, 'aquatic', 'judge-1');
-    expect(rows).toHaveLength(max);
-    expect(rows.every((r) => Number.isInteger(r.value))).toBe(true);
-    expect(rows.map((r) => r.value).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: max }, (_, i) => i + 1),
+        { candidateId: `c-${i}`, criterionKey: null, value: v },
+      ]),
     );
+    const got = scoresFor(SLUG, 'aquatic', 'judge-1')
+      .map((r) => r.value)
+      .sort((a, b) => a - b);
+    expect(got).toEqual(values);
   });
 });

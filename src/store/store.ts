@@ -357,12 +357,7 @@ export function simulateSegment(slug: string, segmentKey: string): void {
         // per-judge and per-candidate variation.
         const base = 0.72 + Math.random() * 0.26;
         const raw = max * base;
-        /* Whole numbers only. This used to emit half-points on any criterion
-           out of 10 or less, which was fine while judges typed into a number
-           field — but the score pad can only produce integers, so a simulated
-           7.5 renders as an unscored cell and shows a decimal total on a sheet
-           that cannot contain one. */
-        const value = Math.round(raw);
+        const value = max <= 10 ? Math.round(raw * 2) / 2 : Math.round(raw);
         scores[scoreKey(segmentKey, judge.id, c.id, f)] = Math.min(max, Math.max(0, value));
       }
     }
