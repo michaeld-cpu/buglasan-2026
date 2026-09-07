@@ -1413,7 +1413,11 @@ input { font: inherit; }
    */
   display: flex;
   align-items: center;
-  gap: .7rem 1.15rem;
+  /* A wide column gap. The three parts of this line are a name, a set of
+     large numeric inputs and a large numeric total; at 1.15rem the field and
+     the total read as one crowded cluster, because big numerals need more
+     air around them than body text does to stay separable. */
+  gap: .7rem 2rem;
   flex-wrap: wrap;
 }
 /**
@@ -1577,6 +1581,9 @@ input { font: inherit; }
   flex: 0 0 auto;
   align-self: center;
   margin-left: auto;
+  /* A floor, so the "of 100" caption never wraps and the column does not
+     jitter between a one- and three-digit total as a judge types. */
+  min-width: 3.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -1700,7 +1707,15 @@ input { font: inherit; }
  * ("Costume, Props & Visual Impact") both put their field at the same height
  * — otherwise the fields in a four-criteria row sat at two different
  * baselines and the card grew to cover the taller one. */
-.criterion { display: grid; gap: .35rem; align-content: start; }
+/* Label above its field.
+ *
+ * `align-content: start` so a one-line label ("Score") and a two-line one
+ * ("Costume, Props & Visual Impact") both put their field at the same height.
+ *
+ * The gap is .5rem, up from .35rem: the field's digits are 1.35rem, so a
+ * label pressed 6px above them read as attached to the box rather than
+ * labelling it. */
+.criterion { display: grid; gap: .5rem; align-content: start; }
 
 /**
  * The field box — the input plus its steppers, and nothing else.
