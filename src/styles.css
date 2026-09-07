@@ -1488,40 +1488,6 @@ input { font: inherit; }
      can spill past the blocks without being clipped by them. */
   border-bottom: 1px solid color-mix(in oklch, var(--ink) 14%, transparent);
 }
-/* The floor: a short gold wash directly under the winner's block, brightest
-   at the centre, so the stage is lit where the eye already is. */
-.podium::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 1px;
-  background:
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      color-mix(in oklch, var(--program) 45%, transparent) 50%,
-      transparent 100%
-    );
-}
-.podium__step {
-  display: grid;
-  /* Two rows: the contestant, then their block.
-   *
-   * The first row is `1fr` and every step shares the grid's height, so all
-   * three contestant areas are the same size and each portrait sits directly
-   * on its own block. With `auto` rows the winner floated well above the
-   * plinth — the taller block pushed the row down and the short columns had
-   * nothing to fill the space. `align-items: end` on that row keeps the
-   * contestant's feet at the block's top face. */
-  grid-template-rows: 1fr auto;
-  align-items: end;
-  justify-items: center;
-  gap: .5rem;
-  min-width: 0;
-}
-
 /* The contestant standing on the block. No surface of its own — a card here
    would read as a tile and undo the stage. */
 .podium__who {
@@ -1574,12 +1540,14 @@ input { font: inherit; }
 
 /* ── First place gets the light ─────────────────────────────────────────
  *
- * The emphasis that used to be a gold rim and tint on the block itself. Both
- * layers are drawn on the STEP, not the plinth, so they spill past the
- * block's edges instead of being clipped square by it — that hard cropped
- * corner was the artefact of glowing a `overflow`-bounded box.
+ * The emphasis that used to be a gold rim and tint on the block itself: one
+ * soft pool of light on the floor beneath the winner, and nothing else.
  *
- * `z-index: 0` puts them behind the plinth and the contestant, which are
+ * It is drawn on the STEP, not the plinth, so it spills past the block's
+ * edges instead of being clipped square by it — that hard cropped corner
+ * was the artefact of glowing an `overflow`-bounded box.
+ *
+ * `z-index: 0` puts it behind the plinth and the contestant, which are
  * positioned later in the stacking order, so the light reads as coming from
  * behind and below the winner.
  */
@@ -1587,36 +1555,8 @@ input { font: inherit; }
   position: relative;
   isolation: isolate;
 }
-/* RAYS fanning up from the floor behind the block. `repeating-conic-gradient`
-   from a point below the stage gives evenly spaced spokes; the mask fades
-   them out before they reach the contestant, so they read as stage light
-   rather than as a graphic. */
-.podium__step[data-place='1']::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  /* Kept inside the winner's own column. At -30% the fan reached across the
-     neighbouring blocks, which made it read as a background graphic behind
-     the whole stage instead of light belonging to first place. */
-  right: 2%;
-  bottom: 0;
-  left: 2%;
-  height: 112%;
-  pointer-events: none;
-  /* Narrow, faint spokes. At 16% they competed with the portrait and the
-     medal lettering — this is meant to be felt, not counted. */
-  background:
-    repeating-conic-gradient(
-      from -84deg at 50% 116%,
-      color-mix(in oklch, var(--medal-gold) 7%, transparent) 0deg 1.6deg,
-      transparent 1.6deg 8deg
-    );
-  /* Fades out well before the contestant, so the rays never cross the face. */
-  -webkit-mask-image: radial-gradient(58% 74% at 50% 100%, #000 4%, transparent 66%);
-  mask-image: radial-gradient(58% 74% at 50% 100%, #000 4%, transparent 66%);
-}
-/* A soft pool of light on the floor under the winner, so the rays have a
-   source and the block is not sitting on flat dark. */
+/* The pool of light itself, so the winner's block is not sitting on flat
+   dark like the other two. */
 .podium__step[data-place='1']::after {
   content: '';
   position: absolute;
@@ -1715,7 +1655,7 @@ input { font: inherit; }
      to one line and the score stays level with it. */
   .rank-row { gap: .6rem; padding: .55rem .7rem; }
   .rank-row__name strong { font-size: .85rem; }
-  .rank-row__place { min-width: 2.1rem; font-size: .88rem; }
+  .rank-row__place { min-width: 2.6rem; font-size: .88rem; }
   .rank-row__avatar { width: 34px; height: 34px; }
 }
 
@@ -1784,11 +1724,15 @@ input { font: inherit; }
    makes a shared placing legible without repeating the number. */
 .rank-row__place {
   flex: 0 0 auto;
-  /* Fits "10th"-"14th" without the column jumping between rows. */
-  min-width: 2.4rem;
-  /* Muted gold, not the podium's full `--program`: a 7th place should not
-     compete with the winner's engraved plinth two sections above. */
-  color: color-mix(in oklch, var(--program) 72%, var(--ink-dim));
+  /* Fits "=10th"-"=14th" without the column jumping between rows. Every row
+     states its placing now, and a tie prefixes "=", so this has to hold the
+     widest form. */
+  min-width: 3rem;
+  /* Grey, not gold. Gold is the medal colour and it belongs to the three on
+     the stage — spending it on 8th place said "this is a winner too". A
+     subtle grey lets the placings be read as an index without competing
+     with the podium above. */
+  color: var(--ink-dim);
   font-size: .95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

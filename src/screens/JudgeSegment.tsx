@@ -464,13 +464,17 @@ export function JudgeSegment() {
                   <li className="rank-row frosted" key={entry.candidate.id}>
                     {/* Ordinal for the same reason as the podium: the avatar
                         badge beside it holds the CONTESTANT number, and two
-                        bare gold numerals side by side read as one value.
+                        bare numerals side by side read as one value.
 
-                        Still blank on a tie — a run of equal scores reads as
-                        one group, and repeating "4th" down three rows implies
-                        three separate placings. */}
+                        EVERY row states its placing, including tied ones.
+                        Blanking the repeats was meant to show a tied run as
+                        one group, but a row with no placing beside a row
+                        with one reads as missing data — as though that
+                        candidate failed to rank. A tie is marked with "="
+                        instead, which says "shared" without leaving a hole. */}
                     <span className="rank-row__place">
-                      {entry.sharedWithPrevious ? "" : ordinal(entry.place)}
+                      {entry.sharedWithPrevious ? '=' : ''}
+                      {ordinal(entry.place)}
                     </span>
 
                     <span
