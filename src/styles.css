@@ -648,6 +648,19 @@ input { font: inherit; }
   --frame-hi: oklch(0.93 0.09 92);
   --frame-mid: oklch(0.79 0.135 82);
   --frame-lo: oklch(0.52 0.1 68);
+
+  /* Medal metals for the podium placings. Gold is the app's existing
+     `--frame-mid`, so first place is the same metal as the Sign in button
+     and the 3D mark rather than a fourth gold.
+     
+     Silver is deliberately kept slightly warm (chroma 0.012, not 0) — a
+     true neutral grey reads as "disabled" against this dark green ground,
+     not as a metal. Bronze sits at a lower lightness and redder hue than
+     the gold so second and third are distinguishable from first at a
+     glance and from each other. */
+  --medal-gold: var(--frame-mid);
+  --medal-silver: oklch(0.82 0.012 250);
+  --medal-bronze: oklch(0.66 0.09 52);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1470,17 +1483,9 @@ input { font: inherit; }
   list-style: none;
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  /* A stage LIT FROM ABOVE. This is what separates the podium from the list
-     below it: the top three stand in a pool of light, everyone else is in a
-     plain list. The glow is centred on the winner because that is where the
-     eye goes first. */
-  background:
-    radial-gradient(
-      120% 82% at 50% 4%,
-      color-mix(in oklch, var(--program) 9%, transparent) 0%,
-      color-mix(in oklch, var(--program) 4%, transparent) 38%,
-      transparent 78%
-    );
+  /* No wash across the whole stage — the light belongs to first place only,
+     and it is drawn on that step (see `.podium__step[data-place='1']`) so it
+     can spill past the blocks without being clipped by them. */
   border-bottom: 1px solid color-mix(in oklch, var(--ink) 14%, transparent);
 }
 /* The floor: a short gold wash directly under the winner's block, brightest
@@ -1547,6 +1552,10 @@ input { font: inherit; }
  * `border-radius` only on the top corners: the bottom edge is the stage
  * floor, and rounding it would make each block float.
  */
+/* The blocks are SILHOUETTES. No tint per placing, no gold rim on first, no
+ * glow — the height and the engraved placing already rank them, and lighting
+ * first place's block as well turned the stage back into a highlighted card.
+ * Flat and dark, so the stepped profile is the only thing ranking them. */
 .podium__plinth {
   display: grid;
   place-items: center;
@@ -1554,52 +1563,117 @@ input { font: inherit; }
   width: 100%;
   height: var(--plinth-h, 3rem);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklch, var(--surface-2) calc(30% * var(--frost-tint, 1.8)), transparent) 0%,
-      color-mix(in oklch, var(--ground) calc(30% * var(--frost-tint, 1.8)), transparent) 100%
-    );
-  -webkit-backdrop-filter: blur(56px) saturate(140%);
-  backdrop-filter: blur(56px) saturate(140%);
-  border: 1px solid color-mix(in oklch, var(--ink) 12%, transparent);
+  background: color-mix(in oklch, var(--ground) 52%, transparent);
+  border: 1px solid color-mix(in oklch, var(--ink) 9%, transparent);
   border-bottom: 0;
-  /* A lit top face, so the block reads as a solid with a surface a
-     contestant could stand on rather than as a flat panel. */
-  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--ink) 22%, transparent);
+  /* One neutral hairline on the top face, so a block still reads as a solid
+     with a surface rather than as a flat panel. Identical on all three. */
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--ink) 13%, transparent);
 }
+.podium__step[data-place='1'] .podium__plinth { --plinth-h: 7rem; }
 
-/* First is tallest, centre column, and the only one in gold. */
-.podium__step[data-place='1'] .podium__plinth {
-  --frost-tint: 2.6;
-  --plinth-h: 7rem;
-  border-color: color-mix(in oklch, var(--program) 45%, transparent);
-  border-top-color: color-mix(in oklch, var(--program) 65%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklch, var(--program) 55%, transparent),
-    0 -10px 26px -14px color-mix(in oklch, var(--program) 40%, transparent);
+/* ── First place gets the light ─────────────────────────────────────────
+ *
+ * The emphasis that used to be a gold rim and tint on the block itself. Both
+ * layers are drawn on the STEP, not the plinth, so they spill past the
+ * block's edges instead of being clipped square by it — that hard cropped
+ * corner was the artefact of glowing a `overflow`-bounded box.
+ *
+ * `z-index: 0` puts them behind the plinth and the contestant, which are
+ * positioned later in the stacking order, so the light reads as coming from
+ * behind and below the winner.
+ */
+.podium__step[data-place='1'] {
+  position: relative;
+  isolation: isolate;
+}
+/* RAYS fanning up from the floor behind the block. `repeating-conic-gradient`
+   from a point below the stage gives evenly spaced spokes; the mask fades
+   them out before they reach the contestant, so they read as stage light
+   rather than as a graphic. */
+.podium__step[data-place='1']::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  /* Kept inside the winner's own column. At -30% the fan reached across the
+     neighbouring blocks, which made it read as a background graphic behind
+     the whole stage instead of light belonging to first place. */
+  right: 2%;
+  bottom: 0;
+  left: 2%;
+  height: 112%;
+  pointer-events: none;
+  /* Narrow, faint spokes. At 16% they competed with the portrait and the
+     medal lettering — this is meant to be felt, not counted. */
+  background:
+    repeating-conic-gradient(
+      from -84deg at 50% 116%,
+      color-mix(in oklch, var(--medal-gold) 7%, transparent) 0deg 1.6deg,
+      transparent 1.6deg 8deg
+    );
+  /* Fades out well before the contestant, so the rays never cross the face. */
+  -webkit-mask-image: radial-gradient(58% 74% at 50% 100%, #000 4%, transparent 66%);
+  mask-image: radial-gradient(58% 74% at 50% 100%, #000 4%, transparent 66%);
+}
+/* A soft pool of light on the floor under the winner, so the rays have a
+   source and the block is not sitting on flat dark. */
+.podium__step[data-place='1']::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  right: -8%;
+  bottom: -1px;
+  left: -8%;
+  height: 54%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      54% 100% at 50% 100%,
+      color-mix(in oklch, var(--medal-gold) 13%, transparent) 0%,
+      color-mix(in oklch, var(--medal-gold) 5%, transparent) 45%,
+      transparent 100%
+    );
+}
+/* Above the light. Both are `position: relative` so they take part in the
+   stacking order the `isolation` above establishes. */
+.podium__step[data-place='1'] .podium__plinth,
+.podium__step[data-place='1'] .podium__who {
+  position: relative;
+  z-index: 1;
 }
 .podium__step[data-place='2'] .podium__plinth { --plinth-h: 5rem; }
 .podium__step[data-place='3'] .podium__plinth { --plinth-h: 3.25rem; }
 
 /* Engraved on the face of the block. */
+/* Engraved on the face of the block, in that placing's METAL: gold, silver,
+ * bronze. With the blocks now unlit silhouettes this is what carries the
+ * placing, so it is the only coloured thing on the stage.
+ *
+ * It also has to outrank the avatar badge, which is a solid gold disc
+ * holding the CONTESTANT number. Unlabelled the filled badge won the eye: a
+ * judge looking at 1st place read the contestant number as the rank. The
+ * ordinal suffix from `ordinal()` is the real fix; the weight here keeps the
+ * ranking primary. */
 .podium__place {
-  /* Gold, and heavier than the name, because the placing is what this view
-     exists to show.
-
-     It also has to outrank the avatar badge, which is a solid gold disc
-     holding the CONTESTANT number. Unlabelled the filled badge won the eye:
-     a judge looking at 1st place read the contestant number as the rank. The
-     ordinal suffix from `ordinal()` is the real fix; this weight keeps the
-     ranking primary. */
-  color: var(--program);
+  color: var(--medal, var(--program));
   font-size: 1.05rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: .01em;
   line-height: 1;
 }
-.podium__step[data-place='1'] .podium__place { font-size: 1.35rem; }
+.podium__step[data-place='1'] { --medal: var(--medal-gold); }
+.podium__step[data-place='2'] { --medal: var(--medal-silver); }
+.podium__step[data-place='3'] { --medal: var(--medal-bronze); }
+/* First is larger as well as gold — two signals, since colour alone is not
+   enough for a judge who cannot distinguish gold from bronze. */
+.podium__step[data-place='1'] .podium__place {
+  font-size: 1.45rem;
+  /* A faint lift off the dark block, gold only. Not a glow on the block
+     itself (that is what made the stage read as a card) — light coming off
+     the lettering. */
+  text-shadow: 0 0 18px color-mix(in oklch, var(--medal-gold) 45%, transparent);
+}
 
 .podium__name {
   overflow-wrap: anywhere;
