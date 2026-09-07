@@ -1386,12 +1386,35 @@ input { font: inherit; }
      the card, and with it the whole page, past the viewport. Without this
      the sheet scrolled sideways on every phone. */
   min-width: 0;
-  padding: 1rem 1.15rem;
+  padding: .85rem 1.15rem;
   border-radius: var(--radius-lg);
   /* Heavier than the sign-in card: a judge reads and types numbers on these
      under stage lights, so the sheet is a working surface, not an opening
      composition. */
   --frost-tint: 2.1;
+
+  /**
+   * ONE LINE: identity, then the score fields, then the total.
+   *
+   * This was three stacked blocks — identity, the score grid below it, and
+   * the total pinned to the right of the identity. On a single-criterion
+   * sheet that wasted most of the card: measured, the field ended 208px into
+   * a 1036px card, leaving 828px of dead space to its right while the card
+   * was 189px tall.
+   *
+   * Laying it out horizontally spends that width instead of the page's
+   * height, which is the scarce resource — a judge scrolls through 26
+   * candidates and can only see about five at a time.
+   *
+   * `flex-wrap` is what keeps this honest. On a phone, and on the
+   * four-criteria festival sheets, the fields drop to their own line rather
+   * than being crushed; the layout degrades to the old stack instead of
+   * breaking.
+   */
+  display: flex;
+  align-items: center;
+  gap: .7rem 1.15rem;
+  flex-wrap: wrap;
 }
 /**
  * A scored row. The green is a status cue, NOT a highlight.
@@ -1407,7 +1430,17 @@ input { font: inherit; }
  */
 .score-row--done { border-color: color-mix(in oklch, var(--mint) 8%, transparent); }
 
-.score-row__head { display: flex; align-items: center; gap: .85rem; margin-bottom: .85rem; }
+/* Identity: avatar plus name. Shrink-to-fit with a floor, NOT a large flex
+   basis — a 15rem basis was tried and made the identity claim more width than
+   its content needed, which pushed the fields and the total onto their own
+   lines and left the card taller than the stack it replaced. */
+.score-row__head {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  flex: 1 1 auto;
+  min-width: 11rem;
+}
 /**
  * The candidate avatar: a round portrait in a gold ring, with the entry
  * number badged on its corner.
@@ -1533,8 +1566,17 @@ input { font: inherit; }
  */
 .score-row__who span { color: var(--ink-dim); font-size: .82rem; overflow-wrap: anywhere; }
 
+/* The running total, last on the line.
+ *
+ * `margin-left: auto` keeps it pinned right even when the fields have wrapped
+ * to their own row, so it never floats mid-card. `align-self: center` is what
+ * removes the last of the slack: without it the total sat on the flex line's
+ * baseline while the taller field grid defined the line's height, leaving a
+ * visible gap under it. */
 .score-row__total {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -1556,14 +1598,109 @@ input { font: inherit; }
  * max-width caps the row on a wide monitor so a criterion cell never becomes
  * a landing strip and the number stays near its label.
  */
+/**
+ * The score fields, inline with the identity.
+ *
+ * No `max-width` cap and `flex: 0 1 auto`: the grid takes the width its
+ * criteria actually need and leaves the rest to the name, instead of
+ * reserving 720px whether there is one criterion or four.
+ *
+ * Still `auto-fill` and NOT `auto-fit`, for the reason recorded below — and
+ * the track is `max-content` rather than `1fr` for the same one: a `1fr`
+ * track absorbs the whole flex line's slack, which is exactly the 828px of
+ * dead space this change exists to remove.
+ */
+/**
+ * The score fields, inline with the identity.
+ *
+ * `grid-auto-flow: column` with `auto-cols`, not `repeat(auto-fill, ...)`.
+ * `auto-fill` needs a definite container width to decide how many tracks fit,
+ * and inside a shrink-to-fit flex item it has none — so all four festival
+ * criteria collapsed into one narrow column and the card grew to 364px with a
+ * void beside the name. Flowing in columns lets the criteria sit side by side
+ * and the grid ask for exactly the width they need.
+ *
+ * No `max-width` cap and `flex: 0 1 auto`: the grid takes the width its
+ * criteria need and leaves the rest to the name, rather than reserving 720px
+ * whether there is one criterion or four. It shrinks before the identity does.
+ */
+/**
+ * The score fields, inline with the identity.
+ *
+ * `flex-basis: 0` plus `flex-grow` is what makes this work inside the row.
+ * The grid needs a DEFINITE width for `auto-fit` to decide how many tracks
+ * fit, and a shrink-to-fit flex item gives it none — that is why an earlier
+ * `auto-fill` attempt collapsed all four festival criteria into one narrow
+ * column and grew the card to 364px. Growing from a zero basis resolves to a
+ * definite width, so the tracks reflow properly.
+ *
+ * `auto-fit`, not `auto-fill`, and this is the exception to the note kept
+ * below: `auto-fit` collapsing empty tracks was a problem when this grid was
+ * full-width and a lone column stretched to 1500px. Here the grid is bounded
+ * by the identity beside it and `max()` floors the track, so a single
+ * criterion lands at a sane width instead.
+ *
+ * Wrapping is the phone story. Four criteria at a 7rem floor need 481px, so
+ * on a 390px screen the tracks reflow onto two rows and the whole grid drops
+ * below the identity via the row's `flex-wrap`. A `grid-auto-flow: column`
+ * version was tried and could not do this — column tracks never wrap — and
+ * it scrolled the page sideways, which this sheet must never do.
+ */
+/**
+ * The score fields.
+ *
+ * Two regimes, chosen by viewport width rather than by intrinsic sizing.
+ *
+ * Intrinsic sizing was tried three ways and each failed on one end or the
+ * other: `auto-fill` inside a shrink-to-fit flex item has no definite width,
+ * so all four festival criteria collapsed into a single narrow column (card
+ * 364px); `grid-auto-flow: column` fixed that but column tracks never wrap,
+ * so four 7rem criteria needed 481px and scrolled a phone sideways; growing
+ * from a zero basis reflowed correctly but then fought `max-content` and
+ * stopped sitting inline.
+ *
+ * A breakpoint is the honest tool here. Below the threshold the fields keep
+ * their own line under the identity — the original stacked layout, which is
+ * correct on a phone. Above it they sit inline to the right, which is what
+ * removes the dead space on the tablets and laptops judges actually use.
+ */
 .criteria-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
-  gap: .75rem;
-  max-width: 720px;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+  gap: .55rem .7rem;
+  /* Own line, full width: the phone regime and the pre-breakpoint default. */
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
-.criterion { display: grid; gap: .35rem; }
+/**
+ * Inline from 900px up.
+ *
+ * 900px, not a smaller number: the identity needs ~11rem, the total ~4rem,
+ * and four criteria need ~28rem before they start crushing. Below that the
+ * stack is genuinely the better layout rather than a fallback.
+ */
+@media (min-width: 900px) {
+  .criteria-grid {
+    /* An EXPLICIT track count, from the criterion count the markup sets on
+       this element. `auto-fill`/`auto-fit` cannot be used here: inside a
+       shrink-to-fit flex item they have no definite width to divide, so they
+       resolve to one track and stack the criteria vertically — which is what
+       kept the festival card at 364px through three earlier attempts.
+       Telling the grid how many columns there are removes the guesswork. */
+    flex: 0 1 auto;
+    grid-template-columns: repeat(var(--cells, 1), minmax(7rem, 11rem));
+    justify-content: end;
+  }
+}
+
+/* Label above its field.
+ *
+ * `align-content: start` so a one-line label ("Score") and a two-line one
+ * ("Costume, Props & Visual Impact") both put their field at the same height
+ * — otherwise the fields in a four-criteria row sat at two different
+ * baselines and the card grew to cover the taller one. */
+.criterion { display: grid; gap: .35rem; align-content: start; }
 
 /**
  * The field box — the input plus its steppers, and nothing else.

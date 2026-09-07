@@ -372,13 +372,13 @@ function ScoreRow({
               something they did not already know. */}
           <span>{candidate.lgu}</span>
         </span>
-        <span className="score-row__total">
-          <b>{total === null ? '—' : round1(total)}</b>
-          <span>of {segment.maxTotal}</span>
-        </span>
       </div>
 
-      <div className="criteria-grid">
+      {/* `--cells` tells the CSS how many criteria there are. The inline
+          layout needs an explicit column count — see the note on
+          `.criteria-grid` — because `auto-fill` has no definite width to
+          divide inside a shrink-to-fit flex item. */}
+      <div className="criteria-grid" style={{ ['--cells' as string]: cells.length }}>
         {cells.map((cell) => {
           const raw = draft[cellKey(candidate.id, cell.key)] ?? '';
           const v = Number(raw);
@@ -472,6 +472,17 @@ function ScoreRow({
           );
         })}
       </div>
+
+      {/* The judge's running total, last on the line.
+       *
+       * It used to sit inside `__head`, pinned to the far right of the card
+       * while the fields sat on a line below — which is what left most of the
+       * card empty. After the grid, the row reads left to right as: who they
+       * are, what you scored them, what it adds up to. */}
+      <span className="score-row__total">
+        <b>{total === null ? '—' : round1(total)}</b>
+        <span>of {segment.maxTotal}</span>
+      </span>
     </div>
   );
 }
