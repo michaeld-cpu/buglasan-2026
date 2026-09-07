@@ -184,8 +184,47 @@ export function JudgeSegment() {
       else scored.push({ candidate: c, total });
     }
     scored.sort((a, b) => b.total - a.total || a.candidate.number - b.candidate.number);
-    return { scored, unscored };
+
+    /* Placings, computed once here rather than per row.
+     *
+     * Ties share a placing and the next placing skips: two candidates on 8.5
+     * are both 1st and the third is 3rd. That matches `averageTieRanks` in
+     * the scoring engine, so this view cannot imply an order the tabulation
+     * will not produce.
+     *
+     * `sharedWithPrevious` lets a row render a blank placing instead of
+     * repeating the number, which is what makes a tie legible. */
+    const placed = scored.map((entry, i) => {
+      const first = scored.findIndex((e) => e.total === entry.total);
+      return {
+        ...entry,
+        place: first + 1,
+        sharedWithPrevious: i > 0 && scored[i - 1].total === entry.total,
+      };
+    });
+
+    return { scored: placed, unscored };
   }, [candidates, segment, cells, draft]);
+
+  /**
+   * The podium takes the first three PLACINGS, not the first three rows.
+   *
+   * With a tie for 1st the podium holds 1st, 1st, 3rd — three people across
+   * two placings — and the row after them starts at 4th. Slicing the array at
+   * 3 would do the same thing here only by luck; slicing by placing is what
+   * keeps it correct when the tie is deeper (three on the same score fills
+   * the podium and the next row is 4th).
+   *
+   * `rest` is everyone the podium did not take, so the two are always
+   * disjoint and nobody is shown twice or dropped.
+   */
+  const topThree = ranked.scored.filter((e) => e.place <= 3);
+  /* A deep tie can put more than three people in the top three placings —
+     four candidates on the same score are all 1st. A three-step podium
+     cannot show that honestly, so those fall through to the list, where
+     shared placings render correctly. */
+  const podium = topThree.length === 3 ? topThree : [];
+  const rest = ranked.scored.slice(podium.length);
   const complete = missing.length === 0;
 
   /* The success screen replaces the sheet rather than overlaying it. A judge
@@ -295,37 +334,102 @@ export function JudgeSegment() {
          * absent here rather than disabled — a field that moved between
          * keystrokes is how a score lands on the wrong candidate. Switch back
          * to Sheet order to edit. */
-        <div className="rank-list">
-          {ranked.scored.map((entry, i) => {
-            /* Ties share a placing. Two candidates on 8.5 are both 1st, and
-               the next is 3rd — the same average-tie convention the scoring
-               engine uses, so this view cannot imply an order the tabulation
-               does not. */
-            const prev = ranked.scored[i - 1];
-            const place =
-              prev && prev.total === entry.total
-                ? null
-                : ranked.scored.findIndex((e) => e.total === entry.total) + 1;
-            return (
-              <div className="rank-row frosted" key={entry.candidate.id}>
-                <span className="rank-row__place">{place === null ? '' : place}</span>
-                <span className="rank-row__num" aria-hidden="true">
-                  {entry.candidate.number}
-                </span>
-                <span className="rank-row__name">
-                  <strong>
+        <div className="rank-view">
+          {/* THE PODIUM: the judge's top three.
+            *
+            * Only when three or more are scored. With one or two the podium
+            * is a plinth with gaps in it, which reads as missing data rather
+            * than as an early standing — those fall through to the list.
+            *
+            * Ordered 2 - 1 - 3 in the DOM so first place sits in the middle
+            * at the tallest step, the way a real podium is arranged. Reading
+            * order therefore differs from placing order, which is why each
+            * step states its own placing rather than relying on position.
+            */}
+          {podium.length === 3 && (
+            <ol className="podium">
+              {[podium[1], podium[0], podium[2]].map((entry) => (
+                <li
+                  className="podium__step"
+                  data-place={entry.place}
+                  key={entry.candidate.id}
+                >
+                  {/* The same avatar as the score sheet, so a photoless
+                      roster degrades identically here — the booth and
+                      festival entries are municipalities and structures, and
+                      `.is-empty` styles that as a deliberate blank. */}
+                  <span
+                    className={`score-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
+                  >
+                    {entry.candidate.photo && (
+                      <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
+                    )}
+                    <span aria-hidden="true" className="score-row__badge">
+                      {entry.candidate.number}
+                    </span>
+                  </span>
+
+                  <span className="podium__place">
+                    {entry.sharedWithPrevious ? '=' : ''}
+                    {ordinal(entry.place)}
+                  </span>
+                  <strong className="podium__name">
                     <span className="sr-only">No. {entry.candidate.number}, </span>
                     {entry.candidate.name}
                   </strong>
-                  <span>{entry.candidate.lgu}</span>
-                </span>
-                <span className="rank-row__score">
-                  {round1(entry.total)}
-                  <span className="rank-row__max"> / {segment.maxTotal}</span>
-                </span>
-              </div>
-            );
-          })}
+                  <span className="podium__lgu">{entry.candidate.lgu}</span>
+                  <span className="podium__score">
+                    {round1(entry.total)}
+                    <span className="podium__max"> / {segment.maxTotal}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {/* Everyone else, in placing order. When there is no podium this is
+              the whole standing. */}
+          {rest.length > 0 && (
+            <ol className="rank-list">
+              {rest.map((entry) => (
+                <li className="rank-row frosted" key={entry.candidate.id}>
+                  {/* Ordinal for the same reason as the podium: the avatar
+                      badge beside it holds the CONTESTANT number, and two
+                      bare gold numerals side by side read as one value.
+
+                      Still blank on a tie — a run of equal scores reads as
+                      one group, and repeating "4th" down three rows implies
+                      three separate placings. */}
+                  <span className="rank-row__place">
+                    {entry.sharedWithPrevious ? '' : ordinal(entry.place)}
+                  </span>
+
+                  <span
+                    className={`score-row__avatar rank-row__avatar${entry.candidate.photo ? '' : ' is-empty'}`}
+                  >
+                    {entry.candidate.photo && (
+                      <img alt="" aria-hidden="true" loading="lazy" src={entry.candidate.photo} />
+                    )}
+                    <span aria-hidden="true" className="score-row__badge">
+                      {entry.candidate.number}
+                    </span>
+                  </span>
+
+                  <span className="rank-row__name">
+                    <strong>
+                      <span className="sr-only">No. {entry.candidate.number}, </span>
+                      {entry.candidate.name}
+                    </strong>
+                    <span>{entry.candidate.lgu}</span>
+                  </span>
+                  <span className="rank-row__score">
+                    {round1(entry.total)}
+                    <span className="rank-row__max"> / {segment.maxTotal}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
 
           {/* Held out of the placings rather than ranked last — a blank is
               not a low score. Named, so a judge can see who is still
@@ -891,4 +995,37 @@ function weightedMean(
 /** One decimal, without trailing ".0" on whole numbers. */
 function round1(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+/**
+ * A placing as an English ordinal: 1 -> "1st", 11 -> "11th", 23 -> "23rd".
+ *
+ * The suffix is not decoration. Every podium step and list row shows the
+ * contestant's number in a solid gold avatar badge, and the placing sits
+ * inches away in the same gold. Unlabelled, the two read as one value — on a
+ * photoless roster (booth entries are structures, not people) the filled
+ * badge is the louder of the two, so a judge looking at 1st place would take
+ * the contestant number for the rank. "2nd" is self-evidently a placing in a
+ * way "2" is not.
+ *
+ * Two irregularities, both reachable on a 23-entry booth roster:
+ *
+ *   - 11, 12 and 13 take "th", not "st"/"nd"/"rd" ("11th", never "11st").
+ *     This is why the tens are checked first.
+ *   - The pattern then repeats above 20, so it is the LAST digit that
+ *     decides: 21 -> "21st", 22 -> "22nd".
+ */
+export function ordinal(place: number): string {
+  const tens = place % 100;
+  if (tens >= 11 && tens <= 13) return `${place}th`;
+  switch (place % 10) {
+    case 1:
+      return `${place}st`;
+    case 2:
+      return `${place}nd`;
+    case 3:
+      return `${place}rd`;
+    default:
+      return `${place}th`;
+  }
 }
